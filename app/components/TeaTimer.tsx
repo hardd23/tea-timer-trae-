@@ -153,7 +153,7 @@ const TeaTimer: React.FC = () => {
           </div>
         ))}
       </div>
-      <audio ref={audioRef} src="/bell.mp3" />
+      <audio ref={audioRef} src="/notification.mp3" />
     </div>
   );
 };
