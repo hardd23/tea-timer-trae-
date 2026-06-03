@@ -90,13 +90,11 @@ const TeaTimer: React.FC = () => {
   };
 
   const handleStopAndComplete = (id: string) => {
-    console.log(`handleStopAndComplete called for timer ID: ${id}`);
     setActiveTimers((prevTimers) => {
       const stoppedTimer = prevTimers.find(timer => timer.id === id);
       if (stoppedTimer) {
         const completedTimerLabel = stoppedTimer.label;
         setCompletedTimers(prev => {
-          console.log(`Adding to completedTimers: ${completedTimerLabel} (ID: ${id})`);
           return [...prev, { label: completedTimerLabel, value: stoppedTimer.initialTime, timestamp: Date.now() }];
         });
         return prevTimers.filter(timer => timer.id !== id);
