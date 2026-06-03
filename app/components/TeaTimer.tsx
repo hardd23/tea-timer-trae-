@@ -18,6 +18,7 @@ interface TimerInstance {
   isRunning: boolean;
   timerPhase: TimerPhase;
   label: string;
+  isCompletedByEffect?: boolean;
 }
 
 const TeaTimer: React.FC = () => {
