@@ -22,41 +22,52 @@ const predefinedTimers = [
 
 type TimerPhase = 'idle' | 'brewing' | 'cooling';
 
+interface TimerInstance {
+  id: string;
+  initialTime: number;
+  timeLeft: number;
+  isRunning: boolean;
+  timerPhase: TimerPhase;
+  label: string;
+}
+
 const TeaTimer: React.FC = () => {
-  const [initialTime, setInitialTime] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [timerPhase, setTimerPhase] = useState<TimerPhase>('idle');
+  const [activeTimers, setActiveTimers] = useState<TimerInstance[]>([]);
   const [completedTimers, setCompletedTimers] = useState<CompletedTimer[]>([]);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const prevTimeLeftRef = useRef(0);
+
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isRunning) {
-      timer = setInterval(() => {
-        setTimeLeft((prevTime) => prevTime - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isRunning]); // Зависит только от isRunning
+    const timerInterval = setInterval(() => {
+      setActiveTimers((prevTimers) => {
+        const updatedTimers = prevTimers.map((timer) => {
+          if (!timer.isRunning) return timer;
 
-  useEffect(() => {
-    // Обработка перехода фаз и добавления в завершенные
-    if (prevTimeLeftRef.current > 0 && timeLeft === 0 && timerPhase === 'brewing') {
-      console.log('Brewing completed! Transitioning to cooling phase.', { initialTime, timeLeft, isRunning });
-      if (audioRef.current) {
-        audioRef.current.play();
-      }
-      setTimerPhase('cooling'); // Переход в фазу остывания
-    }
+          const newTimeLeft = timer.timeLeft - 1;
+          let newTimerPhase = timer.timerPhase;
 
-    // Если таймер был запущен, и timeLeft стал 0 или меньше, но фаза еще 'brewing',
-    // это означает, что мы только что достигли 0.
-    // Если timeLeft < 0 и фаза 'cooling', то это уже фаза остывания.
+          if (newTimeLeft <= 0 && timer.timerPhase === 'brewing') {
+            console.log(`Brewing completed for timer ${timer.id}! Transitioning to cooling phase.`, { initialTime: timer.initialTime, timeLeft: newTimeLeft, isRunning: timer.isRunning });
+            if (audioRef.current) {
+              audioRef.current.play();
+            }
+            newTimerPhase = 'cooling';
+          }
 
-    prevTimeLeftRef.current = timeLeft;
-  }, [timeLeft, initialTime, timerPhase, isRunning]);
+          return {
+            ...timer,
+            timeLeft: newTimeLeft,
+            timerPhase: newTimerPhase,
+            isRunning: newTimeLeft > 0 || newTimerPhase === 'cooling', // Keep running if cooling
+          };
+        });
+
+        return updatedTimers;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [audioRef]); // Зависит только от isRunning
+
 
   const formatTime = (time: number) => {
     const absTime = Math.abs(time);
@@ -66,29 +77,35 @@ const TeaTimer: React.FC = () => {
     return `${sign}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleTimerClick = (timeInSeconds: number) => {
-    setIsRunning(false); // Остановить любой текущий таймер
-    setInitialTime(timeInSeconds);
-    setTimeLeft(timeInSeconds);
-    setTimerPhase('brewing'); // Начать фазу заваривания
-    setIsRunning(true); // Запустить таймер
+  const handleTimerClick = (timeInSeconds: number, label: string) => {
+    const newTimer: TimerInstance = {
+      id: Date.now().toString(), // Простой уникальный ID
+      initialTime: timeInSeconds,
+      timeLeft: timeInSeconds,
+      isRunning: true,
+      timerPhase: 'brewing',
+      label: label,
+    };
+    setActiveTimers((prevTimers) => [...prevTimers, newTimer]);
   };
 
-  const handleStopAndComplete = () => {
-    console.log('Stop/Reset button clicked!', { isRunning, timerPhase, initialTime, timeLeft }); // Отладочное сообщение
-    if (isRunning || timerPhase !== 'idle') {
-      setIsRunning(false);
-      setTimerPhase('idle');
-      if (timerPhase === 'cooling') {
-        const completedTimerLabel = predefinedTimers.find(t => t.value === initialTime)?.label || `${initialTime} sec`;
-        setCompletedTimers(prev => [...prev, { label: completedTimerLabel, value: initialTime, timestamp: Date.now() }]);
+  const handleStopAndComplete = (id: string) => {
+    console.log(`handleStopAndComplete called for timer ID: ${id}`);
+    setActiveTimers((prevTimers) => {
+      const stoppedTimer = prevTimers.find(timer => timer.id === id);
+      if (stoppedTimer) {
+        const completedTimerLabel = stoppedTimer.label;
+        setCompletedTimers(prev => {
+          console.log(`Adding to completedTimers: ${completedTimerLabel} (ID: ${id})`);
+          return [...prev, { label: completedTimerLabel, value: stoppedTimer.initialTime, timestamp: Date.now() }];
+        });
+        return prevTimers.filter(timer => timer.id !== id);
       }
-      setInitialTime(0);
-      setTimeLeft(0);
-    }
+      return prevTimers;
+    });
   };
 
-  const currentTimerIsActive = isRunning || timerPhase === 'cooling';
+  const currentTimerIsActive = activeTimers.some(timer => timer.isRunning || timer.timerPhase === 'cooling');
 
   return (
     <div className="flex flex-col items-center space-y-4 w-full">
@@ -106,6 +123,41 @@ const TeaTimer: React.FC = () => {
         </div>
       )}
 
+      {activeTimers.length > 0 && (
+        <div className="w-full mb-6">
+          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Активные таймеры</h2>
+          <div className="space-y-2">
+            {activeTimers.map((timer) => (
+              <div
+                key={timer.id}
+                className="flex items-center justify-between w-full p-3 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-50 text-[var(--color-text-primary)] shadow-md"
+              >
+                <span className="text-lg">{timer.label}</span>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xl font-bold ${timer.timerPhase === 'cooling' ? 'text-red-500' : 'text-[var(--color-accent-primary)]'} animate-pulse`}>
+                    {formatTime(timer.timeLeft)}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleStopAndComplete(timer.id); }}
+                    className="w-8 h-8 rounded-full bg-[var(--color-gold)] flex items-center justify-center text-gray-800 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] focus:ring-opacity-50 transition-all duration-200 shadow-md"
+                    aria-label={timer.timerPhase === 'brewing' ? "Отменить таймер" : "Остановить и завершить таймер"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M6 6h12v12H6z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-4">Доступные таймеры</h2>
       <div className="w-full space-y-2">
         {predefinedTimers.map((timer) => (
@@ -114,10 +166,9 @@ const TeaTimer: React.FC = () => {
             className="flex items-center justify-between w-full p-3 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-50 text-[var(--color-text-primary)] hover:bg-opacity-70 hover:shadow-md transition-all duration-200 focus-within:ring-2 focus-within:ring-[var(--color-accent-primary)] focus-within:ring-opacity-50"
           >
             <button
-              onClick={() => handleTimerClick(timer.value)}
+              onClick={() => handleTimerClick(timer.value, timer.label)}
               className="flex items-center flex-grow focus:outline-none"
               aria-label={`Запустить таймер на ${timer.label}`}
-              disabled={currentTimerIsActive}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -129,32 +180,9 @@ const TeaTimer: React.FC = () => {
               </svg>
               <span className="text-lg">{timer.label}</span>
             </button>
-            {currentTimerIsActive && initialTime === timer.value && (
-              <div className="flex items-center space-x-2">
-                <span className={`text-xl font-bold ${timerPhase === 'cooling' ? 'text-red-500' : 'text-[var(--color-accent-primary)]'} animate-pulse`}>
-                  {formatTime(timeLeft)}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleStopAndComplete(); }}
-                  className="w-8 h-8 rounded-full bg-[var(--color-gold)] flex items-center justify-center text-gray-800 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] focus:ring-opacity-50 transition-all duration-200 shadow-md"
-                  aria-label={timerPhase === 'brewing' ? "Отменить таймер" : "Остановить и завершить таймер"}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M6 6h12v12H6z" />
-                  </svg>
-                </button>
-              </div>
-            )}
           </div>
         ))}
       </div>
-      <audio ref={audioRef} src="/notification.mp3" />
-    </div>
   );
 };
 
