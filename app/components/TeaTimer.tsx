@@ -1,6 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, Component, ReactNode } from 'react';
+import dynamic from 'next/dynamic';
+
+const Metaballs = dynamic(
+  () => import('@paper-design/shaders-react').then(mod => mod.Metaballs),
+  { ssr: false }
+);
+
+class ShaderErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 interface CompletedTimer {
   id: string;
@@ -18,7 +32,6 @@ interface TimerInstance {
   isRunning: boolean;
   timerPhase: TimerPhase;
   label: string;
-  isCompletedByEffect?: boolean;
 }
 
 const TeaTimer: React.FC = () => {
@@ -74,30 +87,30 @@ const TeaTimer: React.FC = () => {
   };
 
   const handleMinuteChange = (delta: number) => {
-    setMinutes((prevMinutes) => Math.max(0, prevMinutes + delta));
+    setMinutes((prevMinutes) => (prevMinutes + delta + 60) % 60);
   };
 
   const handleSecondChange = (delta: number) => {
-    setSeconds((prevSeconds) => {
-      let newSeconds = prevSeconds + delta;
-      if (newSeconds >= 60) {
-        setMinutes((prevMinutes) => prevMinutes + 1);
-        return newSeconds - 60;
-      }
-      if (newSeconds < 0) {
-        if (minutes > 0) {
-          setMinutes((prevMinutes) => prevMinutes - 1);
-          return newSeconds + 60;
-        }
-        return 0; // Не уходим в отрицательные секунды, если минут нет
-      }
-      return newSeconds;
-    });
+    setSeconds((prevSeconds) => (prevSeconds + delta + 60) % 60);
   };
 
   const handleStartTimer = () => {
     const totalSeconds = minutes * 60 + seconds;
     if (totalSeconds > 0) {
+      setActiveTimers((prevTimers) => {
+        prevTimers.forEach((timer) => {
+          if (timer.timerPhase === 'cooling') {
+            setCompletedTimers((prev) => {
+              if (!prev.some((t) => t.id === timer.id)) {
+                return [...prev, { id: timer.id, label: timer.label, value: timer.initialTime, timestamp: Date.now() }];
+              }
+              return prev;
+            });
+          }
+        });
+        return prevTimers.filter((t) => t.timerPhase !== 'cooling');
+      });
+
       const newTimer: TimerInstance = {
         id: Date.now().toString(),
         initialTime: totalSeconds,
@@ -105,38 +118,32 @@ const TeaTimer: React.FC = () => {
         isRunning: true,
         timerPhase: 'brewing',
         label: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
-        isCompletedByEffect: false,
       };
       setActiveTimers((prevTimers) => [...prevTimers, newTimer]);
       setCurrentDisplayTimerId(newTimer.id);
-      setMinutes(0);
-      setSeconds(0);
     }
   };
 
   const handleStopAndComplete = (id: string) => {
-    // Find the timer to be stopped from the current activeTimers state
     const stoppedTimer = activeTimers.find(timer => timer.id === id);
 
     if (stoppedTimer) {
-      // Add to completedTimers first
-      setCompletedTimers(prevCompleted => {
-        // Ensure it's not already in completedTimers (using its unique ID)
-        if (!prevCompleted.some(t => t.id === stoppedTimer.id)) {
-          return [...prevCompleted, {
-            id: stoppedTimer.id,
-            label: stoppedTimer.label,
-            value: stoppedTimer.initialTime,
-            timestamp: Date.now() // New timestamp for completion
-          }];
-        }
-        return prevCompleted;
-      });
+      if (stoppedTimer.timerPhase === 'cooling') {
+        setCompletedTimers(prevCompleted => {
+          if (!prevCompleted.some(t => t.id === stoppedTimer.id)) {
+            return [...prevCompleted, {
+              id: stoppedTimer.id,
+              label: stoppedTimer.label,
+              value: stoppedTimer.initialTime,
+              timestamp: Date.now()
+            }];
+          }
+          return prevCompleted;
+        });
+      }
 
-      // Then, update activeTimers to remove the stopped timer
       setActiveTimers(prevTimers => {
         const remainingTimers = prevTimers.filter(timer => timer.id !== id);
-        // Adjust currentDisplayTimerId if the stopped timer was the one being displayed
         if (id === currentDisplayTimerId) {
           setCurrentDisplayTimerId(remainingTimers.length > 0 ? remainingTimers[0].id : null);
         }
@@ -145,30 +152,31 @@ const TeaTimer: React.FC = () => {
     }
   };
 
-  const currentTimerIsActive = activeTimers.some(timer => timer.isRunning || timer.timerPhase === 'cooling');
+  const handleDeleteCompleted = (id: string) => {
+    setCompletedTimers(prev => prev.filter(t => t.id !== id));
+  };
 
   return (
       <div className="flex flex-col items-center space-y-4 w-full max-w-md mx-auto">
         <div className="flex items-center justify-center space-x-4 mb-4">
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-[var(--color-text-secondary)]">Min.</span>
             <div className="flex flex-col items-center">
               <button
                 onClick={() => handleMinuteChange(1)}
-                className="text-4xl text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] transition-colors duration-200"
+                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
                 aria-label="Increase minutes"
               >
-                ▲
+                m
               </button>
-              <div className="flex space-x-1 bg-[var(--color-bg-secondary)] rounded-lg p-2 shadow-md">
+              <div className="my-1">
                 <div className="text-6xl font-bold text-[var(--color-text-primary)] w-24 text-center">{String(minutes).padStart(2, '0')}</div>
               </div>
               <button
                 onClick={() => handleMinuteChange(-1)}
-                className="text-4xl text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] transition-colors duration-200"
+                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
                 aria-label="Decrease minutes"
               >
-                ▼
+                m
               </button>
             </div>
           </div>
@@ -179,23 +187,22 @@ const TeaTimer: React.FC = () => {
             <div className="flex flex-col items-center">
               <button
                 onClick={() => handleSecondChange(10)}
-                className="text-4xl text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] transition-colors duration-200"
+                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
                 aria-label="Increase seconds"
               >
-                ▲
+                s
               </button>
-              <div className="flex space-x-1 bg-[var(--color-bg-secondary)] rounded-lg p-2 shadow-md">
+              <div className="my-1">
                 <div className="text-6xl font-bold text-[var(--color-text-primary)] w-24 text-center">{String(seconds).padStart(2, '0')}</div>
               </div>
               <button
                 onClick={() => handleSecondChange(-10)}
-                className="text-4xl text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] transition-colors duration-200"
+                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
                 aria-label="Decrease seconds"
               >
-                ▼
+                s
               </button>
             </div>
-            <span className="text-sm text-[var(--color-text-secondary)]">Sec.</span>
           </div>
         </div>
 
@@ -216,13 +223,31 @@ const TeaTimer: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex flex-col items-center justify-center space-y-2 w-full p-3 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-50 text-[var(--color-text-primary)] shadow-md min-h-[100px]">
+        <div className="relative w-full p-3 rounded-lg shadow-md min-h-[100px] overflow-hidden">
           {currentDisplayTimer ? (
             <>
-              <span className="text-lg">{currentDisplayTimer.label}</span>
-              <span className={`text-5xl font-bold ${currentDisplayTimer.timerPhase === 'cooling' ? 'text-red-500' : 'text-[var(--color-accent-primary)]'} animate-pulse`}>
-                {formatTime(currentDisplayTimer.timeLeft)}
-              </span>
+              <div className="absolute inset-0">
+                <ShaderErrorBoundary fallback={
+                  <div className={`w-full h-full ${currentDisplayTimer.timerPhase === 'cooling' ? 'bg-red-900' : 'bg-green-900'}`} />
+                }>
+                  <Metaballs
+                    width={600}
+                    height={200}
+                    colors={currentDisplayTimer.timerPhase === 'cooling' ? ["#ff0000", "#ff4444", "#ff6666", "#cc0000", "#ff2222"] : ["#2e7d32", "#4caf50", "#66bb6a", "#1b5e20", "#43a047"]}
+                    colorBack="#000000"
+                    count={12}
+                    size={0.6}
+                    speed={0.3}
+                    scale={1.0}
+                  />
+                </ShaderErrorBoundary>
+              </div>
+              <div className="relative z-10 flex flex-col items-center justify-center space-y-2">
+                <span className="text-lg text-[var(--color-text-primary)] drop-shadow-md">{currentDisplayTimer.label}</span>
+                <span className={`text-5xl font-bold ${currentDisplayTimer.timerPhase === 'cooling' ? 'text-red-500 animate-pulse' : 'text-[var(--color-accent-primary)]'} drop-shadow-md`}>
+                  {formatTime(currentDisplayTimer.timeLeft)}
+                </span>
+              </div>
             </>
           ) : (
             <span className="text-lg text-[var(--color-text-secondary)]">No active timer</span>
@@ -251,9 +276,20 @@ const TeaTimer: React.FC = () => {
             {isAccordionOpen && completedTimers.length > 0 && (
               <div className="space-y-1 mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg shadow-inner">
                 {completedTimers.map((timer, index) => (
-                  <div key={index} className="flex items-center p-2 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-30 text-[var(--color-text-secondary)] text-md">
-                    <span className="mr-2">✅</span>
-                    <span>{timer.label}</span>
+                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-30 text-[var(--color-text-secondary)] text-md">
+                    <div className="flex items-center">
+                      <span className="mr-2">✅</span>
+                      <span>{timer.label}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteCompleted(timer.id)}
+                      className="text-[var(--color-text-secondary)] hover:text-red-500 transition-colors duration-200"
+                      aria-label="Delete timer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 ))}
               </div>
