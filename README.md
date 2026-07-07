@@ -1,60 +1,66 @@
 # Tea Timer
 
-Веб-приложение для таймера заваривания чая с анимированным фоном и двухфазным отсчётом.
+A web-based tea brewing timer with animated shader background and two-phase countdown.
 
-## Демо
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.4-black?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.4-61dafb?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
+## Demo
 
 https://tea-timer-trae.vercel.app
 
-## Возможности
+## Features
 
-- **Двухфазный таймер** — brewing (заваривание) + cooling (остывание)
-- **Мульти-таймер** — запуск нескольких таймеров одновременно
-- **Metaballs анимация** — шейдерный фон зоны активного таймера (зелёный при заваривании, красный при остывании)
-- **Звуковое уведомление** — сигнал при завершении фазы заваривания
-- **Светлая/тёмная тема** — автоматическое переключение по системным настройкам
-- **Glass morphism** — современный визуальный стиль
-- **История завершённых** — аккордеон с возможностью удаления
+- **Two-phase timer** — brewing (steeping) + cooling (post-brew countdown)
+- **Multi-timer** — run multiple timers simultaneously
+- **Metaballs animation** — animated shader background on the active timer (green during brewing, red during cooling)
+- **Sound notification** — audio alert when brewing phase completes
+- **Light/Dark theme** — automatic switching based on system preferences
+- **Glass morphism** — modern translucent UI design
+- **Completed history** — expandable accordion with delete option
 
-## Стек
+## Tech Stack
 
 - [Next.js](https://nextjs.org/) 16.2.4
 - [React](https://react.dev/) 19.2.4
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) 4
-- [@paper-design/shaders-react](https://github.com/nickytonline/paper-design-shaders-react) — Metaballs анимация
+- [@paper-design/shaders-react](https://github.com/nickytonline/paper-design-shaders-react) — Metaballs shader animation
 
-## Запуск
+## Getting Started
 
 ```bash
-# Установка зависимостей
+# Install dependencies
 npm install
 
-# Запуск dev-сервера
+# Start dev server
 npm run dev
 
-# Сборка
+# Build for production
 npm run build
 
-# Запуск production-версии
+# Start production server
 npm start
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000) в браузере.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Структура проекта
+## Project Structure
 
 ```
 app/
 ├── components/
-│   └── TeaTimer.tsx    # Основной компонент таймера
-├── globals.css         # CSS-переменные и темы
+│   └── TeaTimer.tsx    # Main timer component
+├── globals.css         # CSS variables and themes
 ├── layout.tsx          # Root layout
-└── page.tsx            # Главная страница
+└── page.tsx            # Home page
 public/
-└── notification.mp3    # Звук уведомления
+└── notification.mp3    # Notification sound
 ```
 
-## Лицензия
+## License
 
-MIT
+[MIT](./LICENSE)
