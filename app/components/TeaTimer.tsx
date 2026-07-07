@@ -41,6 +41,15 @@ const TeaTimer: React.FC = () => {
   const [seconds, setSeconds] = useState(0);
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [currentDisplayTimerId, setCurrentDisplayTimerId] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    handler({ matches: mq.matches } as MediaQueryListEvent);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
 
   const currentDisplayTimer = activeTimers.find(timer => timer.id === currentDisplayTimerId);
@@ -233,8 +242,11 @@ const TeaTimer: React.FC = () => {
                   <Metaballs
                     width={600}
                     height={200}
-                    colors={currentDisplayTimer.timerPhase === 'cooling' ? ["#ff0000", "#ff4444", "#ff6666", "#cc0000", "#ff2222"] : ["#2e7d32", "#4caf50", "#66bb6a", "#1b5e20", "#43a047"]}
-                    colorBack="#000000"
+                    colors={isDark
+                      ? (currentDisplayTimer.timerPhase === 'cooling' ? ["#ff0000", "#ff4444", "#ff6666", "#cc0000", "#ff2222"] : ["#2e7d32", "#4caf50", "#66bb6a", "#1b5e20", "#43a047"])
+                      : (currentDisplayTimer.timerPhase === 'cooling' ? ["#ff6b6b", "#ff8787", "#ffa8a8", "#e03131", "#ff5252"] : ["#51cf66", "#69db74", "#8ce99a", "#2b8a3e", "#40c057"])
+                    }
+                    colorBack={isDark ? "#000000" : "#ffffff"}
                     count={12}
                     size={0.6}
                     speed={0.3}
