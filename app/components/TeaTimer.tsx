@@ -28,6 +28,7 @@ const TeaTimer: React.FC = () => {
 
   const currentDisplayTimer = activeTimers.find(timer => timer.id === currentDisplayTimerId);
   const hasActiveCountdown = Boolean(currentDisplayTimer);
+  const isBrewingActive = currentDisplayTimer?.timerPhase === 'brewing';
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -186,7 +187,7 @@ const TeaTimer: React.FC = () => {
           <button
             onClick={handleStartTimer}
             className="w-2/3 rounded-lg bg-[var(--color-accent-primary)] p-3 text-lg font-medium text-white shadow-[0_0_12px_rgba(40,167,69,0.3)] transition-all duration-200 ease-in-out hover:bg-[var(--color-accent-secondary)] hover:shadow-[0_0_18px_rgba(40,167,69,0.38)] focus:outline-none focus:ring-2 focus:ring-[rgba(40,167,69,0.24)] disabled:cursor-not-allowed disabled:bg-[var(--color-accent-primary)] disabled:shadow-none disabled:opacity-45"
-            disabled={minutes === 0 && seconds === 0 || hasActiveCountdown}
+            disabled={minutes === 0 && seconds === 0 || isBrewingActive}
           >
             Start
           </button>
