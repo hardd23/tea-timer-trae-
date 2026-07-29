@@ -1,20 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Component, ReactNode } from 'react';
-import dynamic from 'next/dynamic';
-
-const Metaballs = dynamic(
-  () => import('@paper-design/shaders-react').then(mod => mod.Metaballs),
-  { ssr: false }
-);
-
-class ShaderErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
-  render() {
-    return this.state.hasError ? this.props.fallback : this.props.children;
-  }
-}
+import React, { useState, useEffect } from 'react';
 
 interface CompletedTimer {
   id: string;
@@ -41,16 +27,6 @@ const TeaTimer: React.FC = () => {
   const [seconds, setSeconds] = useState(0);
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [currentDisplayTimerId, setCurrentDisplayTimerId] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    handler({ matches: mq.matches } as MediaQueryListEvent);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
 
   const currentDisplayTimer = activeTimers.find(timer => timer.id === currentDisplayTimerId);
 
@@ -235,25 +211,13 @@ const TeaTimer: React.FC = () => {
         <div className="relative w-full p-3 rounded-lg shadow-md min-h-[100px] overflow-hidden">
           {currentDisplayTimer ? (
             <>
-              <div className="absolute inset-0">
-                <ShaderErrorBoundary fallback={
-                  <div className={`w-full h-full ${currentDisplayTimer.timerPhase === 'cooling' ? 'bg-red-900' : 'bg-green-900'}`} />
-                }>
-                  <Metaballs
-                    width={600}
-                    height={200}
-                    colors={isDark
-                      ? (currentDisplayTimer.timerPhase === 'cooling' ? ["#ff0000", "#ff4444", "#ff6666", "#cc0000", "#ff2222"] : ["#2e7d32", "#4caf50", "#66bb6a", "#1b5e20", "#43a047"])
-                      : (currentDisplayTimer.timerPhase === 'cooling' ? ["#ff6b6b", "#ff8787", "#ffa8a8", "#e03131", "#ff5252"] : ["#51cf66", "#69db74", "#8ce99a", "#2b8a3e", "#40c057"])
-                    }
-                    colorBack={isDark ? "#000000" : "#ffffff"}
-                    count={12}
-                    size={0.6}
-                    speed={0.3}
-                    scale={1.0}
-                  />
-                </ShaderErrorBoundary>
-              </div>
+              <div
+                className={`absolute inset-0 ${
+                  currentDisplayTimer.timerPhase === 'cooling'
+                    ? 'bg-red-100 dark:bg-red-950/70'
+                    : 'bg-green-100 dark:bg-green-950/70'
+                }`}
+              />
               <div className="relative z-10 flex flex-col items-center justify-center space-y-2">
                 <span className="text-lg text-[var(--color-text-primary)] drop-shadow-md">{currentDisplayTimer.label}</span>
                 <span className={`text-5xl font-bold ${currentDisplayTimer.timerPhase === 'cooling' ? 'text-red-500 animate-pulse' : 'text-[var(--color-accent-primary)]'} drop-shadow-md`}>

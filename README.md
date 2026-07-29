@@ -1,6 +1,6 @@
 # Tea Timer
 
-A web-based tea brewing timer with animated shader background and two-phase countdown.
+A web-based tea brewing timer with a clean phase-aware background and two-phase countdown.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.4-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.4-61dafb?logo=react)](https://react.dev/)
@@ -16,7 +16,7 @@ https://tea-timer-trae.vercel.app
 
 - **Two-phase timer** — brewing (steeping) + cooling (post-brew countdown)
 - **Multi-timer** — run multiple timers simultaneously
-- **Metaballs animation** — animated shader background on the active timer (green during brewing, red during cooling)
+- **Phase-aware background** — a clean background on the active timer (green during brewing, red during cooling)
 - **Sound notification** — audio alert when brewing phase completes
 - **Light/Dark theme** — automatic switching based on system preferences
 - **Glass morphism** — modern translucent UI design
@@ -28,7 +28,6 @@ https://tea-timer-trae.vercel.app
 - [React](https://react.dev/) 19.2.4
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) 4
-- [@paper-design/shaders-react](https://github.com/nickytonline/paper-design-shaders-react) — Metaballs shader animation
 
 ## Getting Started
 
