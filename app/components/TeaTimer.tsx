@@ -108,6 +108,15 @@ const TeaTimer: React.FC = () => {
     }
   };
 
+  const moveCoolingTimerToCompleted = (timer: TimerInstance) => {
+    setCompletedTimers(prevCompleted => {
+      if (prevCompleted.some(t => t.id === timer.id)) {
+        return prevCompleted;
+      }
+      return [...prevCompleted, { id: timer.id, label: timer.label }];
+    });
+  };
+
   const handleResetTimer = (id: string) => {
     setActiveTimers(prevTimers => {
       const remainingTimers = prevTimers.filter(timer => timer.id !== id);
@@ -116,6 +125,13 @@ const TeaTimer: React.FC = () => {
       }
       return remainingTimers;
     });
+  };
+
+  const handleStopTimer = (timer: TimerInstance) => {
+    if (timer.timerPhase === 'cooling') {
+      moveCoolingTimerToCompleted(timer);
+    }
+    handleResetTimer(timer.id);
   };
 
   const handleDeleteCompleted = (id: string) => {
@@ -178,7 +194,7 @@ const TeaTimer: React.FC = () => {
 
         <div className="flex space-x-4 w-full mb-8">
           <button
-            onClick={() => currentDisplayTimer && handleResetTimer(currentDisplayTimer.id)}
+            onClick={() => currentDisplayTimer && handleStopTimer(currentDisplayTimer)}
             className="w-1/3 rounded-lg border border-white/20 bg-transparent p-3 text-lg font-medium text-[var(--color-text-primary)] transition-all duration-200 ease-in-out hover:border-white/40 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-35"
             disabled={!currentDisplayTimer}
           >
