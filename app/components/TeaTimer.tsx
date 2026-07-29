@@ -27,6 +27,7 @@ const TeaTimer: React.FC = () => {
   const [currentDisplayTimerId, setCurrentDisplayTimerId] = useState<string | null>(null);
 
   const currentDisplayTimer = activeTimers.find(timer => timer.id === currentDisplayTimerId);
+  const hasActiveCountdown = Boolean(currentDisplayTimer);
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -138,22 +139,26 @@ const TeaTimer: React.FC = () => {
 
   return (
       <div className="flex flex-col items-center space-y-4 w-full max-w-md mx-auto">
-        <div className="flex items-center justify-center space-x-4 mb-4">
+        <div
+          className={`mb-4 flex items-center justify-center space-x-4 transition-all duration-300 ${
+            hasActiveCountdown ? 'scale-[0.92] opacity-30' : 'opacity-100'
+          }`}
+        >
           <div className="flex items-center space-x-2">
             <div className="flex flex-col items-center">
               <button
                 onClick={() => handleMinuteChange(1)}
-                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
+                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
                 aria-label="Increase minutes"
               >
                 m
               </button>
               <div className="my-1">
-                <div className="text-6xl font-bold text-[var(--color-text-primary)] w-24 text-center">{String(minutes).padStart(2, '0')}</div>
+                <div className="w-24 text-center text-6xl font-medium text-[var(--color-text-primary)]">{String(minutes).padStart(2, '0')}</div>
               </div>
               <button
                 onClick={() => handleMinuteChange(-1)}
-                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
+                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
                 aria-label="Decrease minutes"
               >
                 m
@@ -167,17 +172,17 @@ const TeaTimer: React.FC = () => {
             <div className="flex flex-col items-center">
               <button
                 onClick={() => handleSecondChange(10)}
-                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
+                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
                 aria-label="Increase seconds"
               >
                 s
               </button>
               <div className="my-1">
-                <div className="text-6xl font-bold text-[var(--color-text-primary)] w-24 text-center">{String(seconds).padStart(2, '0')}</div>
+                <div className="w-24 text-center text-6xl font-medium text-[var(--color-text-primary)]">{String(seconds).padStart(2, '0')}</div>
               </div>
               <button
                 onClick={() => handleSecondChange(-10)}
-                className="w-8 h-8 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-primary)] hover:text-white flex items-center justify-center text-sm font-bold shadow-md transition-colors duration-200"
+                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
                 aria-label="Decrease seconds"
               >
                 s
@@ -213,9 +218,15 @@ const TeaTimer: React.FC = () => {
                     : 'bg-green-100 dark:bg-green-950/70'
                 }`}
               />
-              <div className="relative z-10 flex flex-col items-center justify-center space-y-2">
-                <span className="text-lg text-[var(--color-text-primary)] drop-shadow-md">{currentDisplayTimer.label}</span>
-                <span className={`text-5xl font-bold ${currentDisplayTimer.timerPhase === 'cooling' ? 'text-red-500 animate-pulse' : 'text-[var(--color-accent-primary)]'} drop-shadow-md`}>
+              <div className="relative z-10 flex min-h-[100px] items-center justify-center">
+                <span
+                  className={`text-6xl font-normal sm:text-7xl ${
+                    currentDisplayTimer.timerPhase === 'cooling'
+                      ? 'text-red-500 animate-pulse'
+                      : 'text-[var(--color-accent-primary)]'
+                  } drop-shadow-md`}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
                   {formatTime(currentDisplayTimer.timeLeft)}
                 </span>
               </div>
