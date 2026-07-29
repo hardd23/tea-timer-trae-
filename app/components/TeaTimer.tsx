@@ -5,11 +5,9 @@ import React, { useState, useEffect } from 'react';
 interface CompletedTimer {
   id: string;
   label: string;
-  value: number;
-  timestamp: number;
 }
 
-type TimerPhase = 'idle' | 'brewing' | 'cooling';
+type TimerPhase = 'brewing' | 'cooling';
 
 interface TimerInstance {
   id: string;
@@ -40,7 +38,6 @@ const TeaTimer: React.FC = () => {
           let newTimerPhase = timer.timerPhase;
 
           if (newTimeLeft <= 0 && timer.timerPhase === 'brewing') {
-            console.log(`Brewing completed for timer ${timer.id}! Transitioning to cooling phase.`, { initialTime: timer.initialTime, timeLeft: newTimeLeft, isRunning: timer.isRunning });
             if (typeof window !== 'undefined') {
               new Audio('/notification.mp3').play();
             }
@@ -51,7 +48,7 @@ const TeaTimer: React.FC = () => {
             ...timer,
             timeLeft: newTimeLeft,
             timerPhase: newTimerPhase,
-            isRunning: newTimeLeft > 0 || newTimerPhase === 'cooling', // Keep running if cooling
+            isRunning: newTimeLeft > 0 || newTimerPhase === 'cooling',
           };
         });
 
@@ -87,7 +84,7 @@ const TeaTimer: React.FC = () => {
           if (timer.timerPhase === 'cooling') {
             setCompletedTimers((prev) => {
               if (!prev.some((t) => t.id === timer.id)) {
-                return [...prev, { id: timer.id, label: timer.label, value: timer.initialTime, timestamp: Date.now() }];
+                return [...prev, { id: timer.id, label: timer.label }];
               }
               return prev;
             });
@@ -119,8 +116,6 @@ const TeaTimer: React.FC = () => {
             return [...prevCompleted, {
               id: stoppedTimer.id,
               label: stoppedTimer.label,
-              value: stoppedTimer.initialTime,
-              timestamp: Date.now()
             }];
           }
           return prevCompleted;
@@ -251,8 +246,8 @@ const TeaTimer: React.FC = () => {
           <div className="min-h-[100px]">
             {isAccordionOpen && completedTimers.length > 0 && (
               <div className="space-y-1 mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg shadow-inner">
-                {completedTimers.map((timer, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-30 text-[var(--color-text-secondary)] text-md">
+                {completedTimers.map((timer) => (
+                  <div key={timer.id} className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-30 text-[var(--color-text-secondary)] text-md">
                     <div className="flex items-center">
                       <span className="mr-2">✅</span>
                       <span>{timer.label}</span>
