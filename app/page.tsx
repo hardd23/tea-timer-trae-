@@ -26,7 +26,7 @@ export default function Home() {
           timer
         </span>
       </header>
-      <div className="w-[320px] md:w-[360px] p-8 rounded-lg backdrop-blur-xl bg-[rgba(var(--color-glass-base),0.2)] shadow-lg flex flex-col items-center border border-[rgba(var(--color-glass-base),0.1)]">
+      <div className="flex w-[320px] flex-col items-center rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.03)] p-10 shadow-lg backdrop-blur-[16px] md:w-[360px]">
         <TeaTimer />
       </div>
     </div>
