@@ -107,30 +107,14 @@ const TeaTimer: React.FC = () => {
     }
   };
 
-  const handleStopAndComplete = (id: string) => {
-    const stoppedTimer = activeTimers.find(timer => timer.id === id);
-
-    if (stoppedTimer) {
-      if (stoppedTimer.timerPhase === 'cooling') {
-        setCompletedTimers(prevCompleted => {
-          if (!prevCompleted.some(t => t.id === stoppedTimer.id)) {
-            return [...prevCompleted, {
-              id: stoppedTimer.id,
-              label: stoppedTimer.label,
-            }];
-          }
-          return prevCompleted;
-        });
+  const handleResetTimer = (id: string) => {
+    setActiveTimers(prevTimers => {
+      const remainingTimers = prevTimers.filter(timer => timer.id !== id);
+      if (id === currentDisplayTimerId) {
+        setCurrentDisplayTimerId(remainingTimers.length > 0 ? remainingTimers[0].id : null);
       }
-
-      setActiveTimers(prevTimers => {
-        const remainingTimers = prevTimers.filter(timer => timer.id !== id);
-        if (id === currentDisplayTimerId) {
-          setCurrentDisplayTimerId(remainingTimers.length > 0 ? remainingTimers[0].id : null);
-        }
-        return remainingTimers;
-      });
-    }
+      return remainingTimers;
+    });
   };
 
   const handleDeleteCompleted = (id: string) => {
@@ -193,16 +177,16 @@ const TeaTimer: React.FC = () => {
 
         <div className="flex space-x-4 w-full mb-8">
           <button
-            onClick={() => currentDisplayTimer && handleStopAndComplete(currentDisplayTimer.id)}
-            className="w-1/3 p-3 rounded-lg bg-white text-gray-800 text-lg font-semibold hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200 shadow-md"
+            onClick={() => currentDisplayTimer && handleResetTimer(currentDisplayTimer.id)}
+            className="w-1/3 rounded-lg border border-white/20 bg-transparent p-3 text-lg font-medium text-[var(--color-text-primary)] transition-all duration-200 ease-in-out hover:border-white/40 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-35"
             disabled={!currentDisplayTimer}
           >
             Stop
           </button>
           <button
             onClick={handleStartTimer}
-            className="w-2/3 p-3 rounded-lg bg-[var(--color-accent-primary)] text-white text-lg font-semibold hover:bg-[var(--color-accent-secondary)] transition-colors duration-200 shadow-md"
-            disabled={minutes === 0 && seconds === 0}
+            className="w-2/3 rounded-lg bg-[var(--color-accent-primary)] p-3 text-lg font-medium text-white shadow-[0_0_12px_rgba(40,167,69,0.3)] transition-all duration-200 ease-in-out hover:bg-[var(--color-accent-secondary)] hover:shadow-[0_0_18px_rgba(40,167,69,0.38)] focus:outline-none focus:ring-2 focus:ring-[rgba(40,167,69,0.24)] disabled:cursor-not-allowed disabled:bg-[var(--color-accent-primary)] disabled:shadow-none disabled:opacity-45"
+            disabled={minutes === 0 && seconds === 0 || hasActiveCountdown}
           >
             Start
           </button>
