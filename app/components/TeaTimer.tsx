@@ -1,6 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 interface CompletedTimer {
   id: string;
@@ -12,274 +17,585 @@ type TimerPhase = 'brewing' | 'cooling';
 interface TimerInstance {
   id: string;
   initialTime: number;
+  endAt: number;
   timeLeft: number;
   isRunning: boolean;
   timerPhase: TimerPhase;
   label: string;
 }
 
+const HISTORY_ROW_HEIGHT = 56;
+
 const TeaTimer: React.FC = () => {
   const [activeTimers, setActiveTimers] = useState<TimerInstance[]>([]);
   const [completedTimers, setCompletedTimers] = useState<CompletedTimer[]>([]);
-  const [minutes, setMinutes] = useState(0);
-  const [seconds, setSeconds] = useState(0);
+  const [{ minutes, seconds }, setTimerSetting] = useState({
+    minutes: 0,
+    seconds: 0,
+  });
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [currentDisplayTimerId, setCurrentDisplayTimerId] = useState<string | null>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const historyListRef = useRef<HTMLDivElement>(null);
+  const progressSvgRef = useRef<SVGSVGElement>(null);
+  const progressPathRef = useRef<SVGPathElement>(null);
+  const progressFrameRef = useRef<number | null>(null);
+  const coolingStartedRef = useRef<Set<string>>(new Set());
 
-  const currentDisplayTimer = activeTimers.find(timer => timer.id === currentDisplayTimerId);
-  const hasActiveCountdown = Boolean(currentDisplayTimer);
+  const currentDisplayTimer = activeTimers.find(
+    (timer) => timer.id === currentDisplayTimerId,
+  );
+  const hasActiveCountdown = Boolean(currentDisplayTimer?.isRunning);
   const isBrewingActive = currentDisplayTimer?.timerPhase === 'brewing';
+  const progressTimerId = currentDisplayTimer?.id;
+  const progressTimerPhase = currentDisplayTimer?.timerPhase;
+  const progressTimerIsRunning = currentDisplayTimer?.isRunning;
+  const progressEndAt = currentDisplayTimer?.endAt;
+  const progressDurationMs = (currentDisplayTimer?.initialTime ?? 0) * 1000;
 
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      setActiveTimers((prevTimers) => {
-        const updatedTimers = prevTimers.map((timer) => {
-          if (!timer.isRunning) return timer;
+  const recordCompletedTimer = useCallback((timer: CompletedTimer) => {
+    setCompletedTimers((prevCompleted) => {
+      if (prevCompleted.some((completed) => completed.id === timer.id)) {
+        return prevCompleted;
+      }
 
-          const newTimeLeft = timer.timeLeft - 1;
-          let newTimerPhase = timer.timerPhase;
+      return [...prevCompleted, { id: timer.id, label: timer.label }];
+    });
+  }, []);
 
-          if (newTimeLeft <= 0 && timer.timerPhase === 'brewing') {
-            if (typeof window !== 'undefined') {
-              new Audio('/notification.mp3').play();
+  const startCooling = useCallback((timerId: string, overtimeSeconds: number) => {
+    if (coolingStartedRef.current.has(timerId)) return;
+
+    coolingStartedRef.current.add(timerId);
+    progressPathRef.current?.setAttribute('stroke-dashoffset', '100');
+
+    setActiveTimers((prevTimers) =>
+      prevTimers.map((activeTimer) =>
+        activeTimer.id === timerId
+          ? {
+              ...activeTimer,
+              timeLeft: overtimeSeconds > 0 ? -overtimeSeconds : 0,
+              isRunning: true,
+              timerPhase: 'cooling',
             }
-            newTimerPhase = 'cooling';
+          : activeTimer,
+      ),
+    );
+
+    void new Audio('/notification.mp3').play().catch(() => undefined);
+  }, []);
+
+  const syncTimerState = useCallback(() => {
+    if (
+      !progressTimerId ||
+      !progressTimerIsRunning ||
+      progressEndAt === undefined ||
+      progressDurationMs <= 0
+    ) {
+      return;
+    }
+
+    const remainingMs = progressEndAt - Date.now();
+
+    if (progressTimerPhase === 'cooling') {
+      const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
+      const coolingTimeLeft = overtimeSeconds > 0 ? -overtimeSeconds : 0;
+
+      progressPathRef.current?.setAttribute('stroke-dashoffset', '100');
+      setActiveTimers((prevTimers) => {
+        let didChange = false;
+        const nextTimers = prevTimers.map((timer) => {
+          if (timer.id !== progressTimerId || timer.timeLeft === coolingTimeLeft) {
+            return timer;
           }
 
-          return {
-            ...timer,
-            timeLeft: newTimeLeft,
-            timerPhase: newTimerPhase,
-            isRunning: newTimeLeft > 0 || newTimerPhase === 'cooling',
-          };
+          didChange = true;
+          return { ...timer, timeLeft: coolingTimeLeft };
         });
 
-        return updatedTimers;
+        return didChange ? nextTimers : prevTimers;
       });
-    }, 1000);
+      return;
+    }
 
-    return () => clearInterval(timerInterval);
-  }, []); // Зависит только от isRunning
+    const brewingRemainingMs = Math.max(0, remainingMs);
+    const progress = Math.max(0, Math.min(1, brewingRemainingMs / progressDurationMs));
 
+    progressPathRef.current?.setAttribute(
+      'stroke-dashoffset',
+      (100 * (1 - progress)).toFixed(4),
+    );
+
+    if (remainingMs <= 0) {
+      const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
+      startCooling(progressTimerId, overtimeSeconds);
+      return;
+    }
+
+    const remainingSeconds = Math.ceil(brewingRemainingMs / 1000);
+    setActiveTimers((prevTimers) => {
+      let didChange = false;
+      const nextTimers = prevTimers.map((timer) => {
+        if (timer.id !== progressTimerId || timer.timeLeft === remainingSeconds) {
+          return timer;
+        }
+
+        didChange = true;
+        return { ...timer, timeLeft: remainingSeconds };
+      });
+
+      return didChange ? nextTimers : prevTimers;
+    });
+  }, [
+    progressDurationMs,
+    progressEndAt,
+    progressTimerId,
+    progressTimerIsRunning,
+    progressTimerPhase,
+    startCooling,
+  ]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncTimerState();
+      }
+    };
+    const handlePageShow = () => syncTimerState();
+    const timerInterval = window.setInterval(syncTimerState, 1000);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.clearInterval(timerInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [syncTimerState]);
+
+  useEffect(() => {
+    const progressSvg = progressSvgRef.current;
+    const progressPath = progressPathRef.current;
+
+    if (!progressSvg || !progressPath) return;
+
+    const updateProgressPath = () => {
+      const width = progressSvg.clientWidth;
+      const height = progressSvg.clientHeight;
+      const inset = 1;
+      const radius = Math.min(11, (height - inset * 2) / 2);
+      const left = inset;
+      const right = width - inset;
+      const top = inset;
+      const bottom = height - inset;
+      const centerX = width / 2;
+
+      progressPath.setAttribute(
+        'd',
+        [
+          `M ${centerX} ${top}`,
+          `H ${right - radius}`,
+          `Q ${right} ${top} ${right} ${top + radius}`,
+          `V ${bottom - radius}`,
+          `Q ${right} ${bottom} ${right - radius} ${bottom}`,
+          `H ${left + radius}`,
+          `Q ${left} ${bottom} ${left} ${bottom - radius}`,
+          `V ${top + radius}`,
+          `Q ${left} ${top} ${left + radius} ${top}`,
+          `H ${centerX}`,
+          'Z',
+        ].join(' '),
+      );
+    };
+
+    const resizeObserver = new ResizeObserver(updateProgressPath);
+    resizeObserver.observe(progressSvg);
+    updateProgressPath();
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (progressFrameRef.current !== null) {
+      cancelAnimationFrame(progressFrameRef.current);
+      progressFrameRef.current = null;
+    }
+
+    const progressPath = progressPathRef.current;
+    if (
+      !progressPath ||
+      !progressTimerId ||
+      progressTimerPhase !== 'brewing' ||
+      !progressTimerIsRunning ||
+      progressEndAt === undefined ||
+      progressDurationMs <= 0
+    ) {
+      progressPath?.setAttribute('stroke-dashoffset', '100');
+      return;
+    }
+
+    const updateProgress = () => {
+      const remainingMs = Math.max(0, progressEndAt - Date.now());
+      const progress = Math.max(0, Math.min(1, remainingMs / progressDurationMs));
+      const dashOffset = 100 * (1 - progress);
+
+      progressPath.setAttribute('stroke-dashoffset', dashOffset.toFixed(4));
+
+      if (progress > 0) {
+        progressFrameRef.current = requestAnimationFrame(updateProgress);
+      } else {
+        progressFrameRef.current = null;
+        const overtimeSeconds = Math.floor(
+          Math.max(0, Date.now() - progressEndAt) / 1000,
+        );
+        startCooling(progressTimerId, overtimeSeconds);
+      }
+    };
+
+    updateProgress();
+
+    return () => {
+      if (progressFrameRef.current !== null) {
+        cancelAnimationFrame(progressFrameRef.current);
+        progressFrameRef.current = null;
+      }
+    };
+  }, [
+    progressDurationMs,
+    progressEndAt,
+    progressTimerId,
+    progressTimerIsRunning,
+    progressTimerPhase,
+    startCooling,
+  ]);
 
   const formatTime = (time: number) => {
     const absTime = Math.abs(time);
-    const minutes = Math.floor(absTime / 60);
-    const seconds = absTime % 60;
+    const displayMinutes = Math.floor(absTime / 60);
+    const displaySeconds = absTime % 60;
     const sign = time < 0 ? '-' : '';
-    return `${sign}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    return `${sign}${displayMinutes.toString().padStart(2, '0')}:${displaySeconds
+      .toString()
+      .padStart(2, '0')}`;
   };
 
   const handleMinuteChange = (delta: number) => {
-    setMinutes((prevMinutes) => (prevMinutes + delta + 60) % 60);
+    setTimerSetting((prevSetting) => ({
+      ...prevSetting,
+      minutes: (prevSetting.minutes + delta + 60) % 60,
+    }));
   };
 
   const handleSecondChange = (delta: number) => {
-    setSeconds((prevSeconds) => (prevSeconds + delta + 60) % 60);
+    setTimerSetting((prevSetting) => {
+      const currentTotalSeconds = prevSetting.minutes * 60 + prevSetting.seconds;
+      const nextTotalSeconds = Math.max(0, currentTotalSeconds + delta);
+
+      return {
+        minutes: Math.floor(nextTotalSeconds / 60) % 60,
+        seconds: nextTotalSeconds % 60,
+      };
+    });
   };
 
   const handleStartTimer = () => {
     const totalSeconds = minutes * 60 + seconds;
-    if (totalSeconds > 0) {
-      setActiveTimers((prevTimers) => {
-        prevTimers.forEach((timer) => {
-          if (timer.timerPhase === 'cooling') {
-            setCompletedTimers((prev) => {
-              if (!prev.some((t) => t.id === timer.id)) {
-                return [...prev, { id: timer.id, label: timer.label }];
-              }
-              return prev;
-            });
-          }
-        });
-        return prevTimers.filter((t) => t.timerPhase !== 'cooling');
-      });
 
-      const newTimer: TimerInstance = {
-        id: Date.now().toString(),
-        initialTime: totalSeconds,
-        timeLeft: totalSeconds,
-        isRunning: true,
-        timerPhase: 'brewing',
-        label: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
-      };
-      setActiveTimers((prevTimers) => [...prevTimers, newTimer]);
-      setCurrentDisplayTimerId(newTimer.id);
-    }
-  };
+    if (totalSeconds <= 0) return;
 
-  const moveCoolingTimerToCompleted = (timer: TimerInstance) => {
-    setCompletedTimers(prevCompleted => {
-      if (prevCompleted.some(t => t.id === timer.id)) {
-        return prevCompleted;
-      }
-      return [...prevCompleted, { id: timer.id, label: timer.label }];
-    });
+    activeTimers
+      .filter((timer) => timer.timerPhase === 'cooling')
+      .forEach(recordCompletedTimer);
+
+    progressPathRef.current?.setAttribute('stroke-dashoffset', '0');
+
+    const newTimer: TimerInstance = {
+      id: Date.now().toString(),
+      initialTime: totalSeconds,
+      endAt: Date.now() + totalSeconds * 1000,
+      timeLeft: totalSeconds,
+      isRunning: true,
+      timerPhase: 'brewing',
+      label: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+    };
+
+    coolingStartedRef.current.delete(newTimer.id);
+    setActiveTimers((prevTimers) => [
+      ...prevTimers.filter((timer) => timer.timerPhase !== 'cooling'),
+      newTimer,
+    ]);
+    setCurrentDisplayTimerId(newTimer.id);
   };
 
   const handleResetTimer = (id: string) => {
-    setActiveTimers(prevTimers => {
-      const remainingTimers = prevTimers.filter(timer => timer.id !== id);
+    setActiveTimers((prevTimers) => {
+      const remainingTimers = prevTimers.filter((timer) => timer.id !== id);
+
       if (id === currentDisplayTimerId) {
         setCurrentDisplayTimerId(remainingTimers.length > 0 ? remainingTimers[0].id : null);
       }
+
       return remainingTimers;
     });
   };
 
   const handleStopTimer = (timer: TimerInstance) => {
     if (timer.timerPhase === 'cooling') {
-      moveCoolingTimerToCompleted(timer);
+      recordCompletedTimer(timer);
     }
+
+    coolingStartedRef.current.add(timer.id);
+    if (progressFrameRef.current !== null) {
+      cancelAnimationFrame(progressFrameRef.current);
+      progressFrameRef.current = null;
+    }
+    progressPathRef.current?.setAttribute('stroke-dashoffset', '100');
     handleResetTimer(timer.id);
   };
 
   const handleDeleteCompleted = (id: string) => {
-    setCompletedTimers(prev => prev.filter(t => t.id !== id));
+    setCompletedTimers((prevCompleted) =>
+      prevCompleted.filter((timer) => timer.id !== id),
+    );
   };
 
+  const updateScrollState = useCallback(() => {
+    const list = historyListRef.current;
+
+    if (!list) {
+      setCanScrollUp(false);
+      setCanScrollDown(false);
+      setScrollProgress(0);
+      return;
+    }
+
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    setCanScrollUp(list.scrollTop > 1);
+    setCanScrollDown(list.scrollTop < maxScroll - 1);
+    setScrollProgress(maxScroll > 0 ? list.scrollTop / maxScroll : 0);
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(updateScrollState);
+    return () => cancelAnimationFrame(frame);
+  }, [completedTimers.length, isAccordionOpen, updateScrollState]);
+
+  const scrollHistory = (direction: -1 | 1) => {
+    historyListRef.current?.scrollBy({
+      top: direction * HISTORY_ROW_HEIGHT,
+    });
+  };
+
+  const showScrollControls = completedTimers.length > 3;
+  const historyHeight = Math.min(completedTimers.length, 3) * HISTORY_ROW_HEIGHT;
+
   return (
-      <div className="flex flex-col items-center space-y-4 w-full max-w-md mx-auto">
-        <div
-          className={`mb-4 flex items-center justify-center space-x-4 transition-all duration-300 ${
-            hasActiveCountdown ? 'scale-[0.92] opacity-30' : 'opacity-100'
-          }`}
+    <section className="timer-stack flex w-full flex-col" aria-label="Tea timer controls">
+      <div
+        className={`flex items-center justify-center gap-3 transition-[opacity,transform] duration-300 motion-reduce:transition-none sm:gap-4 ${
+          hasActiveCountdown ? 'scale-[0.96] opacity-55' : 'opacity-100'
+        }`}
+      >
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => handleMinuteChange(1)}
+            className="time-stepper"
+            aria-label="Increase minutes"
+          >
+            M+
+          </button>
+          <div className="timer-input-digits" aria-label={`${minutes} minutes`}>
+            {String(minutes).padStart(2, '0')}
+          </div>
+          <button
+            type="button"
+            onClick={() => handleMinuteChange(-1)}
+            className="time-stepper"
+            aria-label="Decrease minutes"
+          >
+            M−
+          </button>
+        </div>
+
+        <span className="timer-input-separator" aria-hidden="true">
+          :
+        </span>
+
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => handleSecondChange(10)}
+            className="time-stepper"
+            aria-label="Increase seconds"
+          >
+            S+
+          </button>
+          <div className="timer-input-digits" aria-label={`${seconds} seconds`}>
+            {String(seconds).padStart(2, '0')}
+          </div>
+          <button
+            type="button"
+            onClick={() => handleSecondChange(-10)}
+            className="time-stepper"
+            aria-label="Decrease seconds"
+          >
+            S−
+          </button>
+        </div>
+      </div>
+
+      <div className="functional-block timer-actions grid w-full grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => currentDisplayTimer && handleStopTimer(currentDisplayTimer)}
+          className="control-button control-button-secondary"
+          disabled={!currentDisplayTimer}
         >
-          <div className="flex items-center space-x-2">
-            <div className="flex flex-col items-center">
-              <button
-                onClick={() => handleMinuteChange(1)}
-                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
-                aria-label="Increase minutes"
-              >
-                m
-              </button>
-              <div className="my-1">
-                <div className="w-24 text-center text-6xl font-medium text-[var(--color-text-primary)]">{String(minutes).padStart(2, '0')}</div>
-              </div>
-              <button
-                onClick={() => handleMinuteChange(-1)}
-                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
-                aria-label="Decrease minutes"
-              >
-                m
-              </button>
-            </div>
-          </div>
+          Stop
+        </button>
+        <button
+          type="button"
+          onClick={handleStartTimer}
+          className="control-button control-button-primary col-span-2"
+          disabled={(minutes === 0 && seconds === 0) || isBrewingActive}
+        >
+          Start
+        </button>
+      </div>
 
-          <span className="text-6xl font-bold text-[var(--color-text-primary)]">:</span>
+      <div
+        className="functional-block active-timer"
+        data-phase={hasActiveCountdown ? currentDisplayTimer?.timerPhase : 'idle'}
+      >
+        <svg
+          ref={progressSvgRef}
+          className="active-timer-progress"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            ref={progressPathRef}
+            d="M 0 0"
+            pathLength="100"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+            strokeDasharray="100 100"
+            strokeDashoffset="100"
+          />
+        </svg>
+        <output
+          className="active-timer-digits"
+          aria-label={
+            hasActiveCountdown && currentDisplayTimer
+              ? currentDisplayTimer.timerPhase === 'cooling'
+                ? `${formatTime(currentDisplayTimer.timeLeft)} overtime`
+                : `${formatTime(currentDisplayTimer.timeLeft)} remaining`
+              : 'No active timers'
+          }
+        >
+          {hasActiveCountdown && currentDisplayTimer
+            ? formatTime(currentDisplayTimer.timeLeft)
+            : 'No active timers'}
+        </output>
+      </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="flex flex-col items-center">
-              <button
-                onClick={() => handleSecondChange(10)}
-                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
-                aria-label="Increase seconds"
-              >
-                s
-              </button>
-              <div className="my-1">
-                <div className="w-24 text-center text-6xl font-medium text-[var(--color-text-primary)]">{String(seconds).padStart(2, '0')}</div>
-              </div>
-              <button
-                onClick={() => handleSecondChange(-10)}
-                className="flex h-7 items-center justify-center text-xs font-medium uppercase tracking-[0.24em] text-[var(--color-text-secondary)] transition-colors duration-200 hover:text-[var(--color-text-primary)]"
-                aria-label="Decrease seconds"
-              >
-                s
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex space-x-4 w-full mb-8">
-          <button
-            onClick={() => currentDisplayTimer && handleStopTimer(currentDisplayTimer)}
-            className="w-1/3 rounded-lg border border-white/20 bg-transparent p-3 text-lg font-medium text-[var(--color-text-primary)] transition-all duration-200 ease-in-out hover:border-white/40 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-35"
-            disabled={!currentDisplayTimer}
+      <div className="functional-block completed-section w-full">
+        <button
+          type="button"
+          onClick={() => setIsAccordionOpen((isOpen) => !isOpen)}
+          className="accordion-trigger"
+          aria-expanded={isAccordionOpen}
+          aria-controls="completed-timers-panel"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            className={`h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
+              isAccordionOpen ? 'rotate-90' : ''
+            }`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
           >
-            Stop
-          </button>
-          <button
-            onClick={handleStartTimer}
-            className="w-2/3 rounded-lg bg-[var(--color-accent-primary)] p-3 text-lg font-medium text-white shadow-[0_0_12px_rgba(40,167,69,0.3)] transition-all duration-200 ease-in-out hover:bg-[var(--color-accent-secondary)] hover:shadow-[0_0_18px_rgba(40,167,69,0.38)] focus:outline-none focus:ring-2 focus:ring-[rgba(40,167,69,0.24)] disabled:cursor-not-allowed disabled:bg-[var(--color-accent-primary)] disabled:shadow-none disabled:opacity-45"
-            disabled={minutes === 0 && seconds === 0 || isBrewingActive}
-          >
-            Start
-          </button>
-        </div>
+            <path d="m7 4 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>Completed Timers — {completedTimers.length}</span>
+        </button>
 
-        <div className="relative w-full p-3 rounded-lg shadow-md min-h-[100px] overflow-hidden">
-          {currentDisplayTimer ? (
-            <>
-              <div
-                className={`absolute inset-0 ${
-                  currentDisplayTimer.timerPhase === 'cooling'
-                    ? 'bg-red-100 dark:bg-red-950/70'
-                    : 'bg-green-100 dark:bg-green-950/70'
-                }`}
-              />
-              <div className="relative z-10 flex min-h-[100px] items-center justify-center">
-                <span
-                  className={`text-6xl font-normal sm:text-7xl ${
-                    currentDisplayTimer.timerPhase === 'cooling'
-                      ? 'text-red-500 animate-pulse'
-                      : 'text-[var(--color-accent-primary)]'
-                  } drop-shadow-md`}
-                  style={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {formatTime(currentDisplayTimer.timeLeft)}
-                </span>
-              </div>
-            </>
-          ) : (
-            <span className="text-lg text-[var(--color-text-secondary)]">No active timer</span>
-          )}
-        </div>
-
-        <div className="w-full mt-6">
-          <button
-            onClick={() => setIsAccordionOpen(!isAccordionOpen)}
-            className="flex items-center justify-between w-full p-3 rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] hover:bg-opacity-70 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-primary)] focus:ring-opacity-50"
-          >
-            <div className="flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-5 w-5 mr-2 transform ${isAccordionOpen ? 'rotate-0' : '-rotate-90'} transition-transform duration-200`}
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M7 10l5 5 5-5z" />
-              </svg>
-              <span className="text-lg">Completed Timers ({completedTimers.length})</span>
-            </div>
-            {/* Icon/indicator on the right, if needed */}
-          </button>
-          <div className="min-h-[100px]">
-            {isAccordionOpen && completedTimers.length > 0 && (
-              <div className="space-y-1 mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg shadow-inner">
-                {completedTimers.map((timer) => (
-                  <div key={timer.id} className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-bg-secondary)] bg-opacity-30 text-[var(--color-text-secondary)] text-md">
-                    <div className="flex items-center">
-                      <span className="mr-2">✅</span>
-                      <span>{timer.label}</span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteCompleted(timer.id)}
-                      className="text-[var(--color-text-secondary)] hover:text-red-500 transition-colors duration-200"
-                      aria-label="Delete timer"
+        {isAccordionOpen && completedTimers.length > 0 && (
+          <div id="completed-timers-panel" className="history-panel">
+            <div
+              ref={historyListRef}
+              className="history-scroll min-w-0 flex-1 overflow-y-auto"
+              style={{ height: historyHeight }}
+              onScroll={updateScrollState}
+              tabIndex={0}
+              role="region"
+              aria-label="Completed timers history"
+            >
+              {completedTimers.map((timer) => (
+                <div key={timer.id} className="history-row">
+                  <span className="history-time">{timer.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCompleted(timer.id)}
+                    className="delete-button"
+                    aria-label={`Delete completed timer ${timer.label}`}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-[18px] w-[18px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      aria-hidden="true"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                      <path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {showScrollControls && (
+              <div className="history-scroll-controls" aria-label="History scroll controls">
+                <button
+                  type="button"
+                  onClick={() => scrollHistory(-1)}
+                  className="scroll-arrow"
+                  disabled={!canScrollUp}
+                  aria-label="Scroll completed timers up"
+                >
+                  <span aria-hidden="true">▲</span>
+                </button>
+                <div className="scroll-track" aria-hidden="true">
+                  <span
+                    className="scroll-thumb"
+                    style={{ top: `${scrollProgress * 72}%` }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => scrollHistory(1)}
+                  className="scroll-arrow"
+                  disabled={!canScrollDown}
+                  aria-label="Scroll completed timers down"
+                >
+                  <span aria-hidden="true">▼</span>
+                </button>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
+    </section>
   );
 };
 

@@ -1,34 +1,58 @@
 import TeaTimer from './components/TeaTimer';
 
+const footerLinks = [
+  { label: 'Telegram', href: 'https://t.me/hardd_lab' },
+  { label: 'GitHub', href: 'https://github.com/hardd23' },
+];
+
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg-primary)] px-6 text-[var(--color-text-primary)]">
-      <header className="mb-8 flex items-center justify-center gap-4 sm:gap-6">
-        <span
-          className="text-xl font-light lowercase tracking-[0.28em] sm:text-2xl"
-          style={{ color: 'rgba(255, 255, 255, 0.7)' }}
-        >
-          tea
-        </span>
-        <h1
-          className="text-5xl leading-none sm:text-6xl"
-          style={{
-            color: 'var(--color-accent-secondary)',
-            fontFamily: "Georgia, 'Times New Roman', serif",
-          }}
-        >
-          茶
-        </h1>
-        <span
-          className="text-xl font-light lowercase tracking-[0.28em] sm:text-2xl"
-          style={{ color: 'rgba(255, 255, 255, 0.7)' }}
-        >
-          timer
-        </span>
-      </header>
-      <div className="flex w-[320px] flex-col items-center rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.03)] p-10 shadow-lg backdrop-blur-[16px] md:w-[360px]">
+    <main className="min-h-dvh overflow-x-hidden bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+      <div className="page-frame mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-4 sm:px-6">
+        <header className="brand-header flex items-center justify-center gap-4" aria-label="Tea Timer">
+          <span className="brand-word">tea</span>
+          <h1 className="brand-kanji">茶</h1>
+          <span className="brand-word">timer</span>
+        </header>
+
         <TeaTimer />
+
+        <footer id="footer" className="app-footer">
+          <a
+            href="https://hardd-lab.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-brand"
+            aria-label="HARDD LAB website"
+          >
+            HARDD LAB
+          </a>
+          <div className="flex items-center justify-center gap-3">
+            {footerLinks.map((link, index) => (
+              <span key={link.label} className="contents">
+                {index > 0 && <span aria-hidden="true">·</span>}
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${link.label} link`}
+                >
+                  {link.label}
+                </a>
+              </span>
+            ))}
+          </div>
+          <a
+            href="https://web.tribute.tg/d/OyG"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-support"
+            aria-label="Support via Tribute"
+          >
+            Support via Tribute
+          </a>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }
