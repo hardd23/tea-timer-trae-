@@ -39,7 +39,7 @@ const TeaTimer: React.FC = () => {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const historyListRef = useRef<HTMLDivElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressBorderRef = useRef<HTMLDivElement>(null);
   const progressFrameRef = useRef<number | null>(null);
   const coolingStartedRef = useRef<Set<string>>(new Set());
 
@@ -54,12 +54,19 @@ const TeaTimer: React.FC = () => {
   const progressEndAt = currentDisplayTimer?.endAt;
   const progressDurationMs = (currentDisplayTimer?.initialTime ?? 0) * 1000;
 
-  const setProgressBarProgress = useCallback((progress: number) => {
-    const progressBar = progressBarRef.current;
+  const setProgressBorderProgress = useCallback((progress: number) => {
+    const progressBorder = progressBorderRef.current;
 
-    if (!progressBar) return;
+    if (!progressBorder) return;
 
-    progressBar.style.transform = `scaleX(${Math.max(0, Math.min(1, progress))})`;
+    const progressBySide = Math.max(0, Math.min(1, progress)) * 4;
+    const sideProgress = (side: number) =>
+      Math.max(0, Math.min(1, progressBySide - side)).toFixed(4);
+
+    progressBorder.style.setProperty('--progress-top', sideProgress(0));
+    progressBorder.style.setProperty('--progress-right', sideProgress(1));
+    progressBorder.style.setProperty('--progress-bottom', sideProgress(2));
+    progressBorder.style.setProperty('--progress-left', sideProgress(3));
   }, []);
 
   const recordCompletedTimer = useCallback((timer: CompletedTimer) => {
@@ -76,7 +83,7 @@ const TeaTimer: React.FC = () => {
     if (coolingStartedRef.current.has(timerId)) return;
 
     coolingStartedRef.current.add(timerId);
-    setProgressBarProgress(0);
+    setProgressBorderProgress(0);
 
     setActiveTimers((prevTimers) =>
       prevTimers.map((activeTimer) =>
@@ -92,7 +99,7 @@ const TeaTimer: React.FC = () => {
     );
 
     void new Audio('/notification.mp3').play().catch(() => undefined);
-  }, [setProgressBarProgress]);
+  }, [setProgressBorderProgress]);
 
   const syncTimerState = useCallback(() => {
     if (
@@ -110,7 +117,7 @@ const TeaTimer: React.FC = () => {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
       const coolingTimeLeft = overtimeSeconds > 0 ? -overtimeSeconds : 0;
 
-      setProgressBarProgress(0);
+      setProgressBorderProgress(0);
       setActiveTimers((prevTimers) => {
         let didChange = false;
         const nextTimers = prevTimers.map((timer) => {
@@ -130,7 +137,7 @@ const TeaTimer: React.FC = () => {
     const brewingRemainingMs = Math.max(0, remainingMs);
     const progress = Math.max(0, Math.min(1, brewingRemainingMs / progressDurationMs));
 
-    setProgressBarProgress(progress);
+    setProgressBorderProgress(progress);
 
     if (remainingMs <= 0) {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
@@ -158,7 +165,7 @@ const TeaTimer: React.FC = () => {
     progressTimerId,
     progressTimerIsRunning,
     progressTimerPhase,
-    setProgressBarProgress,
+    setProgressBorderProgress,
     startCooling,
   ]);
 
@@ -194,14 +201,14 @@ const TeaTimer: React.FC = () => {
       progressEndAt === undefined ||
       progressDurationMs <= 0
     ) {
-      setProgressBarProgress(0);
+      setProgressBorderProgress(0);
       return;
     }
 
     const updateProgress = () => {
       const remainingMs = Math.max(0, progressEndAt - Date.now());
       const progress = Math.max(0, Math.min(1, remainingMs / progressDurationMs));
-      setProgressBarProgress(progress);
+      setProgressBorderProgress(progress);
 
       if (progress > 0) {
         progressFrameRef.current = requestAnimationFrame(updateProgress);
@@ -228,7 +235,7 @@ const TeaTimer: React.FC = () => {
     progressTimerId,
     progressTimerIsRunning,
     progressTimerPhase,
-    setProgressBarProgress,
+    setProgressBorderProgress,
     startCooling,
   ]);
 
@@ -271,7 +278,7 @@ const TeaTimer: React.FC = () => {
       .filter((timer) => timer.timerPhase === 'cooling')
       .forEach(recordCompletedTimer);
 
-    setProgressBarProgress(1);
+    setProgressBorderProgress(1);
 
     const newTimer: TimerInstance = {
       id: Date.now().toString(),
@@ -313,7 +320,7 @@ const TeaTimer: React.FC = () => {
       cancelAnimationFrame(progressFrameRef.current);
       progressFrameRef.current = null;
     }
-    setProgressBarProgress(0);
+    setProgressBorderProgress(0);
     handleResetTimer(timer.id);
   };
 
@@ -432,7 +439,12 @@ const TeaTimer: React.FC = () => {
         className="functional-block active-timer"
         data-phase={hasActiveCountdown ? currentDisplayTimer?.timerPhase : 'idle'}
       >
-        <div ref={progressBarRef} className="active-timer-progress" aria-hidden="true" />
+        <div ref={progressBorderRef} className="active-timer-progress" aria-hidden="true">
+          <span className="active-timer-progress-edge active-timer-progress-top" />
+          <span className="active-timer-progress-edge active-timer-progress-right" />
+          <span className="active-timer-progress-edge active-timer-progress-bottom" />
+          <span className="active-timer-progress-edge active-timer-progress-left" />
+        </div>
         <output
           className="active-timer-digits"
           aria-label={
