@@ -16,7 +16,7 @@ interface AnimationState {
   id: number;
 }
 
-const STEP_THRESHOLD = 30;
+const STEP_THRESHOLD = 60;
 const ANIMATION_DURATION_MS = 280;
 
 const formatValue = (value: number) => String(value).padStart(2, '0');
