@@ -105,14 +105,25 @@ const TeaTimer: React.FC = () => {
 
     context.beginPath();
     context.moveTo(width / 2, top);
-    context.lineTo(left + radius, top);
-    context.arc(left + radius, top + radius, radius, -Math.PI / 2, -Math.PI, true);
-    context.lineTo(left, bottom - radius);
-    context.arc(left + radius, bottom - radius, radius, Math.PI, Math.PI / 2, true);
-    context.lineTo(right - radius, bottom);
-    context.arc(right - radius, bottom - radius, radius, Math.PI / 2, 0, true);
-    context.lineTo(right, top + radius);
-    context.arc(right - radius, top + radius, radius, 0, -Math.PI / 2, true);
+    if (color === COOLING_PROGRESS_COLOR) {
+      context.lineTo(right - radius, top);
+      context.arc(right - radius, top + radius, radius, -Math.PI / 2, 0);
+      context.lineTo(right, bottom - radius);
+      context.arc(right - radius, bottom - radius, radius, 0, Math.PI / 2);
+      context.lineTo(left + radius, bottom);
+      context.arc(left + radius, bottom - radius, radius, Math.PI / 2, Math.PI);
+      context.lineTo(left, top + radius);
+      context.arc(left + radius, top + radius, radius, Math.PI, (3 * Math.PI) / 2);
+    } else {
+      context.lineTo(left + radius, top);
+      context.arc(left + radius, top + radius, radius, -Math.PI / 2, -Math.PI, true);
+      context.lineTo(left, bottom - radius);
+      context.arc(left + radius, bottom - radius, radius, Math.PI, Math.PI / 2, true);
+      context.lineTo(right - radius, bottom);
+      context.arc(right - radius, bottom - radius, radius, Math.PI / 2, 0, true);
+      context.lineTo(right, top + radius);
+      context.arc(right - radius, top + radius, radius, 0, -Math.PI / 2, true);
+    }
     context.lineTo(width / 2, top);
 
     context.lineWidth = 2;
