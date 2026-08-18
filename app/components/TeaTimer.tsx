@@ -39,10 +39,7 @@ const TeaTimer: React.FC = () => {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const historyListRef = useRef<HTMLDivElement>(null);
-  const progressSvgRef = useRef<SVGSVGElement>(null);
-  const progressPathRef = useRef<SVGPathElement>(null);
-  const progressPathLengthRef = useRef(0);
-  const progressOffsetRatioRef = useRef(1);
+  const progressBarRef = useRef<HTMLDivElement>(null);
   const progressFrameRef = useRef<number | null>(null);
   const coolingStartedRef = useRef<Set<string>>(new Set());
 
@@ -57,21 +54,12 @@ const TeaTimer: React.FC = () => {
   const progressEndAt = currentDisplayTimer?.endAt;
   const progressDurationMs = (currentDisplayTimer?.initialTime ?? 0) * 1000;
 
-  const setProgressPathOffset = useCallback((offsetRatio: number) => {
-    const progressPath = progressPathRef.current;
+  const setProgressBarProgress = useCallback((progress: number) => {
+    const progressBar = progressBarRef.current;
 
-    if (!progressPath) return;
+    if (!progressBar) return;
 
-    const length = progressPathLengthRef.current || progressPath.getTotalLength();
-    if (!Number.isFinite(length) || length <= 0) return;
-
-    const clampedOffsetRatio = Math.max(0, Math.min(1, offsetRatio));
-    progressOffsetRatioRef.current = clampedOffsetRatio;
-    progressPath.setAttribute('stroke-dasharray', `${length} ${length}`);
-    progressPath.setAttribute(
-      'stroke-dashoffset',
-      (length * clampedOffsetRatio).toFixed(4),
-    );
+    progressBar.style.transform = `scaleX(${Math.max(0, Math.min(1, progress))})`;
   }, []);
 
   const recordCompletedTimer = useCallback((timer: CompletedTimer) => {
@@ -88,7 +76,7 @@ const TeaTimer: React.FC = () => {
     if (coolingStartedRef.current.has(timerId)) return;
 
     coolingStartedRef.current.add(timerId);
-    setProgressPathOffset(1);
+    setProgressBarProgress(0);
 
     setActiveTimers((prevTimers) =>
       prevTimers.map((activeTimer) =>
@@ -104,7 +92,7 @@ const TeaTimer: React.FC = () => {
     );
 
     void new Audio('/notification.mp3').play().catch(() => undefined);
-  }, [setProgressPathOffset]);
+  }, [setProgressBarProgress]);
 
   const syncTimerState = useCallback(() => {
     if (
@@ -122,7 +110,7 @@ const TeaTimer: React.FC = () => {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
       const coolingTimeLeft = overtimeSeconds > 0 ? -overtimeSeconds : 0;
 
-      setProgressPathOffset(1);
+      setProgressBarProgress(0);
       setActiveTimers((prevTimers) => {
         let didChange = false;
         const nextTimers = prevTimers.map((timer) => {
@@ -142,7 +130,7 @@ const TeaTimer: React.FC = () => {
     const brewingRemainingMs = Math.max(0, remainingMs);
     const progress = Math.max(0, Math.min(1, brewingRemainingMs / progressDurationMs));
 
-    setProgressPathOffset(1 - progress);
+    setProgressBarProgress(progress);
 
     if (remainingMs <= 0) {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
@@ -170,7 +158,7 @@ const TeaTimer: React.FC = () => {
     progressTimerId,
     progressTimerIsRunning,
     progressTimerPhase,
-    setProgressPathOffset,
+    setProgressBarProgress,
     startCooling,
   ]);
 
@@ -194,79 +182,26 @@ const TeaTimer: React.FC = () => {
   }, [syncTimerState]);
 
   useEffect(() => {
-    const progressSvg = progressSvgRef.current;
-    const progressPath = progressPathRef.current;
-
-    if (!progressSvg || !progressPath) return;
-
-    const updateProgressPath = () => {
-      const width = progressSvg.clientWidth;
-      const height = progressSvg.clientHeight;
-      const inset = 1;
-      const radius = Math.min(11, (height - inset * 2) / 2);
-      const left = inset;
-      const right = width - inset;
-      const top = inset;
-      const bottom = height - inset;
-      const centerX = width / 2;
-
-      progressPath.setAttribute(
-        'd',
-        [
-          `M ${centerX} ${top}`,
-          `H ${right - radius}`,
-          `Q ${right} ${top} ${right} ${top + radius}`,
-          `V ${bottom - radius}`,
-          `Q ${right} ${bottom} ${right - radius} ${bottom}`,
-          `H ${left + radius}`,
-          `Q ${left} ${bottom} ${left} ${bottom - radius}`,
-          `V ${top + radius}`,
-          `Q ${left} ${top} ${left + radius} ${top}`,
-          `H ${centerX}`,
-          'Z',
-        ].join(' '),
-      );
-
-      progressPathLengthRef.current = progressPath.getTotalLength();
-      setProgressPathOffset(progressOffsetRatioRef.current);
-    };
-
-    const resizeObserver = new ResizeObserver(updateProgressPath);
-    resizeObserver.observe(progressSvg);
-    window.addEventListener('resize', updateProgressPath);
-    updateProgressPath();
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', updateProgressPath);
-    };
-  }, [setProgressPathOffset]);
-
-  useEffect(() => {
     if (progressFrameRef.current !== null) {
       cancelAnimationFrame(progressFrameRef.current);
       progressFrameRef.current = null;
     }
 
-    const progressPath = progressPathRef.current;
     if (
-      !progressPath ||
       !progressTimerId ||
       progressTimerPhase !== 'brewing' ||
       !progressTimerIsRunning ||
       progressEndAt === undefined ||
       progressDurationMs <= 0
     ) {
-      setProgressPathOffset(1);
+      setProgressBarProgress(0);
       return;
     }
 
     const updateProgress = () => {
       const remainingMs = Math.max(0, progressEndAt - Date.now());
       const progress = Math.max(0, Math.min(1, remainingMs / progressDurationMs));
-      const dashOffset = 100 * (1 - progress);
-
-      setProgressPathOffset(dashOffset / 100);
+      setProgressBarProgress(progress);
 
       if (progress > 0) {
         progressFrameRef.current = requestAnimationFrame(updateProgress);
@@ -293,7 +228,7 @@ const TeaTimer: React.FC = () => {
     progressTimerId,
     progressTimerIsRunning,
     progressTimerPhase,
-    setProgressPathOffset,
+    setProgressBarProgress,
     startCooling,
   ]);
 
@@ -336,7 +271,7 @@ const TeaTimer: React.FC = () => {
       .filter((timer) => timer.timerPhase === 'cooling')
       .forEach(recordCompletedTimer);
 
-    setProgressPathOffset(0);
+    setProgressBarProgress(1);
 
     const newTimer: TimerInstance = {
       id: Date.now().toString(),
@@ -378,7 +313,7 @@ const TeaTimer: React.FC = () => {
       cancelAnimationFrame(progressFrameRef.current);
       progressFrameRef.current = null;
     }
-    setProgressPathOffset(1);
+    setProgressBarProgress(0);
     handleResetTimer(timer.id);
   };
 
@@ -497,21 +432,7 @@ const TeaTimer: React.FC = () => {
         className="functional-block active-timer"
         data-phase={hasActiveCountdown ? currentDisplayTimer?.timerPhase : 'idle'}
       >
-        <svg
-          ref={progressSvgRef}
-          className="active-timer-progress"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            ref={progressPathRef}
-            d="M 0 0"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+        <div ref={progressBarRef} className="active-timer-progress" aria-hidden="true" />
         <output
           className="active-timer-digits"
           aria-label={
