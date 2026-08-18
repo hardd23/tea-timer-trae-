@@ -72,30 +72,7 @@ button {
   gap: 0;
 }
 
-.time-stepper {
-  display: inline-flex;
-  min-width: 44px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  font-size: 0.6875rem;
-  font-weight: 650;
-  letter-spacing: 0.18em;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.time-stepper:hover {
-  background: rgb(255 255 255 / 4%);
-  color: var(--color-text-primary);
-}
-
-.time-stepper:active {
-  background: rgb(255 255 255 / 7%);
-}
-
-.time-stepper:focus-visible,
+.drum-picker:focus-visible,
 .control-button:focus-visible,
 .accordion-trigger:focus-visible,
 .delete-button:focus-visible,
@@ -106,21 +83,106 @@ button {
   outline-offset: 2px;
 }
 
-.timer-input-digits {
-  width: clamp(84px, 27vw, 104px);
+.timer-setting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 3vw, 14px);
+}
+
+.drum-picker-group {
+  display: flex;
+  min-width: clamp(116px, 31vw, 132px);
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.drum-picker {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: clamp(88px, 23vw, 96px);
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 22%), transparent 24%, transparent 76%, rgb(0 0 0 / 22%)),
+    var(--color-bg-secondary);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.drum-picker-value {
+  position: absolute;
   color: var(--color-text-primary);
-  font-size: clamp(48px, 16vw, 68px);
+  font-size: clamp(52px, 15vw, 68px);
   font-variant-numeric: tabular-nums;
   font-weight: 350;
   letter-spacing: -0.04em;
-  line-height: 0.95;
+  line-height: 1;
   text-align: center;
 }
 
+.drum-picker-outgoing.drum-picker-increase {
+  animation: drum-exit-up 160ms ease-out forwards;
+}
+
+.drum-picker-incoming.drum-picker-increase {
+  animation: drum-enter-up 160ms ease-out forwards;
+}
+
+.drum-picker-outgoing.drum-picker-decrease {
+  animation: drum-exit-down 160ms ease-out forwards;
+}
+
+.drum-picker-incoming.drum-picker-decrease {
+  animation: drum-enter-down 160ms ease-out forwards;
+}
+
+.drum-picker-label {
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@keyframes drum-exit-up {
+  to {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+}
+
+@keyframes drum-enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes drum-exit-down {
+  to {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes drum-enter-down {
+  from {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+}
+
 .timer-input-separator {
-  margin-top: -2px;
+  margin-top: -25px;
   color: #c2c8c0;
-  font-size: clamp(2.25rem, 10vw, 3.25rem);
+  font-size: clamp(2rem, 8vw, 2.75rem);
   font-weight: 300;
   line-height: 1;
 }
@@ -436,5 +498,10 @@ button {
 
   .scroll-thumb {
     transition: none;
+  }
+
+  .drum-picker-outgoing,
+  .drum-picker-incoming {
+    animation: none;
   }
 }

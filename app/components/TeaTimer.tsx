@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import DrumPicker from './DrumPicker';
 
 interface CompletedTimer {
   id: string;
@@ -347,23 +348,18 @@ const TeaTimer: React.FC = () => {
       .padStart(2, '0')}`;
   };
 
-  const handleMinuteChange = (delta: number) => {
+  const handleMinuteChange = (nextMinutes: number) => {
     setTimerSetting((prevSetting) => ({
       ...prevSetting,
-      minutes: (prevSetting.minutes + delta + 60) % 60,
+      minutes: nextMinutes,
     }));
   };
 
-  const handleSecondChange = (delta: number) => {
-    setTimerSetting((prevSetting) => {
-      const currentTotalSeconds = prevSetting.minutes * 60 + prevSetting.seconds;
-      const nextTotalSeconds = Math.max(0, currentTotalSeconds + delta);
-
-      return {
-        minutes: Math.floor(nextTotalSeconds / 60) % 60,
-        seconds: nextTotalSeconds % 60,
-      };
-    });
+  const handleSecondChange = (nextSeconds: number) => {
+    setTimerSetting((prevSetting) => ({
+      ...prevSetting,
+      seconds: nextSeconds,
+    }));
   };
 
   const handleStartTimer = () => {
@@ -460,57 +456,15 @@ const TeaTimer: React.FC = () => {
   return (
     <section className="timer-stack flex w-full flex-col" aria-label="Tea timer controls">
       <div
-        className={`flex items-center justify-center gap-3 transition-[opacity,transform] duration-300 motion-reduce:transition-none sm:gap-4 ${
+        className={`timer-setting transition-[opacity,transform] duration-300 motion-reduce:transition-none ${
           hasActiveCountdown ? 'scale-[0.96] opacity-55' : 'opacity-100'
         }`}
       >
-        <div className="flex flex-col items-center">
-          <button
-            type="button"
-            onClick={() => handleMinuteChange(1)}
-            className="time-stepper"
-            aria-label="Increase minutes"
-          >
-            M+
-          </button>
-          <div className="timer-input-digits" aria-label={`${minutes} minutes`}>
-            {String(minutes).padStart(2, '0')}
-          </div>
-          <button
-            type="button"
-            onClick={() => handleMinuteChange(-1)}
-            className="time-stepper"
-            aria-label="Decrease minutes"
-          >
-            M−
-          </button>
-        </div>
-
+        <DrumPicker value={minutes} onChange={handleMinuteChange} label="Минуты" />
         <span className="timer-input-separator" aria-hidden="true">
           :
         </span>
-
-        <div className="flex flex-col items-center">
-          <button
-            type="button"
-            onClick={() => handleSecondChange(10)}
-            className="time-stepper"
-            aria-label="Increase seconds"
-          >
-            S+
-          </button>
-          <div className="timer-input-digits" aria-label={`${seconds} seconds`}>
-            {String(seconds).padStart(2, '0')}
-          </div>
-          <button
-            type="button"
-            onClick={() => handleSecondChange(-10)}
-            className="time-stepper"
-            aria-label="Decrease seconds"
-          >
-            S−
-          </button>
-        </div>
+        <DrumPicker value={seconds} onChange={handleSecondChange} label="Секунды" />
       </div>
 
       <div className="functional-block timer-actions grid w-full grid-cols-3 gap-3">
