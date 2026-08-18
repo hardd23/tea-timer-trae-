@@ -39,7 +39,8 @@ const TeaTimer: React.FC = () => {
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const historyListRef = useRef<HTMLDivElement>(null);
-  const progressBorderRef = useRef<HTMLDivElement>(null);
+  const progressCanvasRef = useRef<HTMLCanvasElement>(null);
+  const progressValueRef = useRef(0);
   const progressFrameRef = useRef<number | null>(null);
   const coolingStartedRef = useRef<Set<string>>(new Set());
 
@@ -55,15 +56,77 @@ const TeaTimer: React.FC = () => {
   const progressDurationMs = (currentDisplayTimer?.initialTime ?? 0) * 1000;
 
   const setProgressBorderProgress = useCallback((progress: number) => {
-    const progressBorder = progressBorderRef.current;
+    const canvas = progressCanvasRef.current;
 
-    if (!progressBorder) return;
+    if (!canvas) return;
 
-    progressBorder.style.setProperty(
-      '--progress-angle',
-      `${(Math.max(0, Math.min(1, progress)) * 360).toFixed(3)}deg`,
-    );
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    progressValueRef.current = clampedProgress;
+
+    const bounds = canvas.getBoundingClientRect();
+    const width = bounds.width;
+    const height = bounds.height;
+    if (width <= 0 || height <= 0) return;
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    const pixelWidth = Math.round(width * pixelRatio);
+    const pixelHeight = Math.round(height * pixelRatio);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const inset = 1;
+    const left = inset;
+    const top = inset;
+    const right = width - inset;
+    const bottom = height - inset;
+    const radius = Math.min(11, (right - left) / 2, (bottom - top) / 2);
+    const perimeter =
+      2 * (right - left - radius * 2) +
+      2 * (bottom - top - radius * 2) +
+      2 * Math.PI * radius;
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    if (clampedProgress === 0) return;
+
+    context.beginPath();
+    context.moveTo(width / 2, top);
+    context.lineTo(left + radius, top);
+    context.arc(left + radius, top + radius, radius, -Math.PI / 2, -Math.PI, true);
+    context.lineTo(left, bottom - radius);
+    context.arc(left + radius, bottom - radius, radius, Math.PI, Math.PI / 2, true);
+    context.lineTo(right - radius, bottom);
+    context.arc(right - radius, bottom - radius, radius, Math.PI / 2, 0, true);
+    context.lineTo(right, top + radius);
+    context.arc(right - radius, top + radius, radius, 0, -Math.PI / 2, true);
+    context.lineTo(width / 2, top);
+
+    context.lineWidth = 2;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = '#88d982';
+    context.setLineDash([perimeter * clampedProgress, perimeter]);
+    context.lineDashOffset = 0;
+    context.stroke();
+    context.setLineDash([]);
   }, []);
+
+  useEffect(() => {
+    const canvas = progressCanvasRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      setProgressBorderProgress(progressValueRef.current);
+    });
+    resizeObserver.observe(canvas);
+
+    return () => resizeObserver.disconnect();
+  }, [setProgressBorderProgress]);
 
   const recordCompletedTimer = useCallback((timer: CompletedTimer) => {
     setCompletedTimers((prevCompleted) => {
@@ -435,7 +498,7 @@ const TeaTimer: React.FC = () => {
         className="functional-block active-timer"
         data-phase={hasActiveCountdown ? currentDisplayTimer?.timerPhase : 'idle'}
       >
-        <div ref={progressBorderRef} className="active-timer-progress" aria-hidden="true" />
+        <canvas ref={progressCanvasRef} className="active-timer-progress" aria-hidden="true" />
         <output
           className="active-timer-digits"
           aria-label={
