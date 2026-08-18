@@ -17,7 +17,7 @@ interface AnimationState {
 }
 
 const STEP_THRESHOLD = 30;
-const ANIMATION_DURATION_MS = 180;
+const ANIMATION_DURATION_MS = 280;
 
 const formatValue = (value: number) => String(value).padStart(2, '0');
 const wrapValue = (value: number) => (value + 60) % 60;
