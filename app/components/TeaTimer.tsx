@@ -25,6 +25,9 @@ interface TimerInstance {
 }
 
 const HISTORY_ROW_HEIGHT = 56;
+const COOLING_DURATION_MS = 3 * 60 * 1000;
+const BREWING_PROGRESS_COLOR = '#88d982';
+const COOLING_PROGRESS_COLOR = '#72b7ff';
 
 const TeaTimer: React.FC = () => {
   const [activeTimers, setActiveTimers] = useState<TimerInstance[]>([]);
@@ -41,6 +44,7 @@ const TeaTimer: React.FC = () => {
   const historyListRef = useRef<HTMLDivElement>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement>(null);
   const progressValueRef = useRef(0);
+  const progressColorRef = useRef(BREWING_PROGRESS_COLOR);
   const progressFrameRef = useRef<number | null>(null);
   const coolingStartedRef = useRef<Set<string>>(new Set());
 
@@ -55,13 +59,18 @@ const TeaTimer: React.FC = () => {
   const progressEndAt = currentDisplayTimer?.endAt;
   const progressDurationMs = (currentDisplayTimer?.initialTime ?? 0) * 1000;
 
-  const setProgressBorderProgress = useCallback((progress: number) => {
+  const setProgressBorderProgress = useCallback((progress: number, color: string) => {
     const canvas = progressCanvasRef.current;
 
     if (!canvas) return;
 
     const clampedProgress = Math.max(0, Math.min(1, progress));
     progressValueRef.current = clampedProgress;
+    progressColorRef.current = color;
+    canvas.classList.toggle(
+      'active-timer-progress-ready',
+      color === COOLING_PROGRESS_COLOR && clampedProgress >= 1,
+    );
 
     const bounds = canvas.getBoundingClientRect();
     const width = bounds.width;
@@ -109,7 +118,7 @@ const TeaTimer: React.FC = () => {
     context.lineWidth = 2;
     context.lineCap = 'round';
     context.lineJoin = 'round';
-    context.strokeStyle = '#88d982';
+    context.strokeStyle = color;
     context.setLineDash([perimeter * clampedProgress, perimeter]);
     context.lineDashOffset = 0;
     context.stroke();
@@ -121,7 +130,7 @@ const TeaTimer: React.FC = () => {
     if (!canvas) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      setProgressBorderProgress(progressValueRef.current);
+      setProgressBorderProgress(progressValueRef.current, progressColorRef.current);
     });
     resizeObserver.observe(canvas);
 
@@ -142,7 +151,7 @@ const TeaTimer: React.FC = () => {
     if (coolingStartedRef.current.has(timerId)) return;
 
     coolingStartedRef.current.add(timerId);
-    setProgressBorderProgress(0);
+    setProgressBorderProgress(0, COOLING_PROGRESS_COLOR);
 
     setActiveTimers((prevTimers) =>
       prevTimers.map((activeTimer) =>
@@ -176,7 +185,8 @@ const TeaTimer: React.FC = () => {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
       const coolingTimeLeft = overtimeSeconds > 0 ? -overtimeSeconds : 0;
 
-      setProgressBorderProgress(0);
+      const coolingProgress = Math.min(1, Math.max(0, -remainingMs) / COOLING_DURATION_MS);
+      setProgressBorderProgress(coolingProgress, COOLING_PROGRESS_COLOR);
       setActiveTimers((prevTimers) => {
         let didChange = false;
         const nextTimers = prevTimers.map((timer) => {
@@ -196,7 +206,7 @@ const TeaTimer: React.FC = () => {
     const brewingRemainingMs = Math.max(0, remainingMs);
     const progress = Math.max(0, Math.min(1, brewingRemainingMs / progressDurationMs));
 
-    setProgressBorderProgress(progress);
+    setProgressBorderProgress(progress, BREWING_PROGRESS_COLOR);
 
     if (remainingMs <= 0) {
       const overtimeSeconds = Math.floor(Math.max(0, -remainingMs) / 1000);
@@ -255,19 +265,36 @@ const TeaTimer: React.FC = () => {
 
     if (
       !progressTimerId ||
-      progressTimerPhase !== 'brewing' ||
+      (progressTimerPhase !== 'brewing' && progressTimerPhase !== 'cooling') ||
       !progressTimerIsRunning ||
       progressEndAt === undefined ||
       progressDurationMs <= 0
     ) {
-      setProgressBorderProgress(0);
+      setProgressBorderProgress(0, BREWING_PROGRESS_COLOR);
       return;
     }
 
     const updateProgress = () => {
-      const remainingMs = Math.max(0, progressEndAt - Date.now());
+      const now = Date.now();
+
+      if (progressTimerPhase === 'cooling') {
+        const coolingProgress = Math.min(
+          1,
+          Math.max(0, now - progressEndAt) / COOLING_DURATION_MS,
+        );
+        setProgressBorderProgress(coolingProgress, COOLING_PROGRESS_COLOR);
+
+        if (coolingProgress < 1) {
+          progressFrameRef.current = requestAnimationFrame(updateProgress);
+        } else {
+          progressFrameRef.current = null;
+        }
+        return;
+      }
+
+      const remainingMs = Math.max(0, progressEndAt - now);
       const progress = Math.max(0, Math.min(1, remainingMs / progressDurationMs));
-      setProgressBorderProgress(progress);
+      setProgressBorderProgress(progress, BREWING_PROGRESS_COLOR);
 
       if (progress > 0) {
         progressFrameRef.current = requestAnimationFrame(updateProgress);
@@ -337,7 +364,7 @@ const TeaTimer: React.FC = () => {
       .filter((timer) => timer.timerPhase === 'cooling')
       .forEach(recordCompletedTimer);
 
-    setProgressBorderProgress(1);
+    setProgressBorderProgress(1, BREWING_PROGRESS_COLOR);
 
     const newTimer: TimerInstance = {
       id: Date.now().toString(),
@@ -379,7 +406,7 @@ const TeaTimer: React.FC = () => {
       cancelAnimationFrame(progressFrameRef.current);
       progressFrameRef.current = null;
     }
-    setProgressBorderProgress(0);
+    setProgressBorderProgress(0, BREWING_PROGRESS_COLOR);
     handleResetTimer(timer.id);
   };
 

@@ -196,8 +196,19 @@ button {
   pointer-events: none;
 }
 
-.active-timer[data-phase="brewing"] .active-timer-progress {
+.active-timer[data-phase="brewing"] .active-timer-progress,
+.active-timer[data-phase="cooling"] .active-timer-progress {
   opacity: 1;
+}
+
+.active-timer-progress.active-timer-progress-ready {
+  animation: tea-ready-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes tea-ready-pulse {
+  50% {
+    opacity: 0.28;
+  }
 }
 
 .active-timer-digits {
