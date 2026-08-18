@@ -111,6 +111,7 @@ button {
     linear-gradient(180deg, rgb(0 0 0 / 22%), transparent 24%, transparent 76%, rgb(0 0 0 / 22%)),
     var(--color-bg-secondary);
   cursor: ns-resize;
+  perspective: 340px;
   touch-action: none;
   user-select: none;
 }
@@ -124,22 +125,24 @@ button {
   letter-spacing: -0.04em;
   line-height: 1;
   text-align: center;
+  transform-origin: center center;
+  will-change: transform, opacity;
 }
 
 .drum-picker-outgoing.drum-picker-increase {
-  animation: drum-exit-up 160ms ease-out forwards;
+  animation: drum-exit-up 180ms cubic-bezier(0.2, 0.75, 0.3, 1) forwards;
 }
 
 .drum-picker-incoming.drum-picker-increase {
-  animation: drum-enter-up 160ms ease-out forwards;
+  animation: drum-enter-up 180ms cubic-bezier(0.2, 0.75, 0.3, 1) forwards;
 }
 
 .drum-picker-outgoing.drum-picker-decrease {
-  animation: drum-exit-down 160ms ease-out forwards;
+  animation: drum-exit-down 180ms cubic-bezier(0.2, 0.75, 0.3, 1) forwards;
 }
 
 .drum-picker-incoming.drum-picker-decrease {
-  animation: drum-enter-down 160ms ease-out forwards;
+  animation: drum-enter-down 180ms cubic-bezier(0.2, 0.75, 0.3, 1) forwards;
 }
 
 .drum-picker-label {
@@ -154,28 +157,28 @@ button {
 @keyframes drum-exit-up {
   to {
     opacity: 0;
-    transform: translateY(-70%);
+    transform: translateY(-105%) rotateX(24deg);
   }
 }
 
 @keyframes drum-enter-up {
   from {
     opacity: 0;
-    transform: translateY(70%);
+    transform: translateY(105%) rotateX(-24deg);
   }
 }
 
 @keyframes drum-exit-down {
   to {
     opacity: 0;
-    transform: translateY(70%);
+    transform: translateY(105%) rotateX(-24deg);
   }
 }
 
 @keyframes drum-enter-down {
   from {
     opacity: 0;
-    transform: translateY(-70%);
+    transform: translateY(-105%) rotateX(24deg);
   }
 }
 

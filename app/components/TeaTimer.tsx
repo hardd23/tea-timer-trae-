@@ -464,7 +464,7 @@ const TeaTimer: React.FC = () => {
         <span className="timer-input-separator" aria-hidden="true">
           :
         </span>
-        <DrumPicker value={seconds} onChange={handleSecondChange} label="Секунды" />
+        <DrumPicker value={seconds} onChange={handleSecondChange} label="Секунды" step={10} />
       </div>
 
       <div className="functional-block timer-actions grid w-full grid-cols-3 gap-3">

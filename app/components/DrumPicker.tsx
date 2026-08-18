@@ -6,25 +6,28 @@ interface DrumPickerProps {
   value: number;
   onChange: (value: number) => void;
   label: string;
+  step?: number;
 }
 
 interface AnimationState {
   from: number;
   to: number;
   direction: 'increase' | 'decrease';
+  id: number;
 }
 
 const STEP_THRESHOLD = 30;
-const ANIMATION_DURATION_MS = 160;
+const ANIMATION_DURATION_MS = 180;
 
 const formatValue = (value: number) => String(value).padStart(2, '0');
 const wrapValue = (value: number) => (value + 60) % 60;
 
-export default function DrumPicker({ value, onChange, label }: DrumPickerProps) {
+export default function DrumPicker({ value, onChange, label, step = 1 }: DrumPickerProps) {
   const [animation, setAnimation] = useState<AnimationState | null>(null);
   const dragRef = useRef({ pointerId: -1, lastY: 0, remainder: 0 });
   const wheelRemainderRef = useRef(0);
   const animationTimeoutRef = useRef<number | null>(null);
+  const animationIdRef = useRef(0);
 
   useEffect(
     () => () => {
@@ -39,11 +42,12 @@ export default function DrumPicker({ value, onChange, label }: DrumPickerProps) 
     (delta: number) => {
       if (delta === 0) return;
 
-      const nextValue = wrapValue(value + delta);
+      const nextValue = wrapValue(value + delta * step);
       setAnimation({
         from: value,
         to: nextValue,
         direction: delta > 0 ? 'increase' : 'decrease',
+        id: ++animationIdRef.current,
       });
       onChange(nextValue);
 
@@ -55,7 +59,7 @@ export default function DrumPicker({ value, onChange, label }: DrumPickerProps) 
         animationTimeoutRef.current = null;
       }, ANIMATION_DURATION_MS);
     },
-    [onChange, value],
+    [onChange, step, value],
   );
 
   const finishDrag = (element: HTMLDivElement, pointerId: number) => {
@@ -145,10 +149,16 @@ export default function DrumPicker({ value, onChange, label }: DrumPickerProps) 
       >
         {isAnimating && animation ? (
           <>
-            <span className={`drum-picker-value drum-picker-outgoing drum-picker-${animation.direction}`}>
+            <span
+              key={`out-${animation.id}`}
+              className={`drum-picker-value drum-picker-outgoing drum-picker-${animation.direction}`}
+            >
               {formatValue(animation.from)}
             </span>
-            <span className={`drum-picker-value drum-picker-incoming drum-picker-${animation.direction}`}>
+            <span
+              key={`in-${animation.id}`}
+              className={`drum-picker-value drum-picker-incoming drum-picker-${animation.direction}`}
+            >
               {formatValue(animation.to)}
             </span>
           </>
