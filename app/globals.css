@@ -190,54 +190,21 @@ button {
   inset: -1px;
   width: 100%;
   height: 100%;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from -90deg,
+    var(--color-accent-secondary) 0deg var(--progress-angle, 0deg),
+    transparent var(--progress-angle, 0deg) 1turn
+  );
   opacity: 0;
   pointer-events: none;
-}
-
-.active-timer-progress-edge {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  background: var(--color-accent-secondary);
-  will-change: transform;
-}
-
-.active-timer-progress-top,
-.active-timer-progress-bottom {
-  right: 0;
-  left: 0;
-  height: 2px;
-}
-
-.active-timer-progress-top {
-  top: 0;
-  transform: scaleX(var(--progress-top, 0));
-  transform-origin: left center;
-}
-
-.active-timer-progress-right,
-.active-timer-progress-left {
-  top: 0;
-  bottom: 0;
-  width: 2px;
-}
-
-.active-timer-progress-right {
-  right: 0;
-  transform: scaleY(var(--progress-right, 0));
-  transform-origin: top center;
-}
-
-.active-timer-progress-bottom {
-  bottom: 0;
-  transform: scaleX(var(--progress-bottom, 0));
-  transform-origin: right center;
-}
-
-.active-timer-progress-left {
-  left: 0;
-  transform: scaleY(var(--progress-left, 0));
-  transform-origin: bottom center;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  will-change: background;
 }
 
 .active-timer[data-phase="brewing"] .active-timer-progress {

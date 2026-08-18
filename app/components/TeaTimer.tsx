@@ -59,14 +59,10 @@ const TeaTimer: React.FC = () => {
 
     if (!progressBorder) return;
 
-    const progressBySide = Math.max(0, Math.min(1, progress)) * 4;
-    const sideProgress = (side: number) =>
-      Math.max(0, Math.min(1, progressBySide - side)).toFixed(4);
-
-    progressBorder.style.setProperty('--progress-top', sideProgress(0));
-    progressBorder.style.setProperty('--progress-right', sideProgress(1));
-    progressBorder.style.setProperty('--progress-bottom', sideProgress(2));
-    progressBorder.style.setProperty('--progress-left', sideProgress(3));
+    progressBorder.style.setProperty(
+      '--progress-angle',
+      `${(Math.max(0, Math.min(1, progress)) * 360).toFixed(3)}deg`,
+    );
   }, []);
 
   const recordCompletedTimer = useCallback((timer: CompletedTimer) => {
@@ -439,12 +435,7 @@ const TeaTimer: React.FC = () => {
         className="functional-block active-timer"
         data-phase={hasActiveCountdown ? currentDisplayTimer?.timerPhase : 'idle'}
       >
-        <div ref={progressBorderRef} className="active-timer-progress" aria-hidden="true">
-          <span className="active-timer-progress-edge active-timer-progress-top" />
-          <span className="active-timer-progress-edge active-timer-progress-right" />
-          <span className="active-timer-progress-edge active-timer-progress-bottom" />
-          <span className="active-timer-progress-edge active-timer-progress-left" />
-        </div>
+        <div ref={progressBorderRef} className="active-timer-progress" aria-hidden="true" />
         <output
           className="active-timer-digits"
           aria-label={
